@@ -23,9 +23,7 @@ def get_pool(host, database, user, password):
                         user=user, 
                         password=password
                     )
-                    print(f"✅ Pool creado: {database}")
                 except Exception as e:
-                    print(f"❌ Error al crear pool: {e}")
                     return None
     return _pools[pool_key]
 
@@ -40,7 +38,6 @@ def connect_bbdd_pgsql(host, database, user, password):
         _conn_to_pool[id(conn)] = db_pool
         return conn
     except Exception as e:
-        print(f"Error al obtener conexión: {e}")
         return None
 
 def release_connection(conn):
@@ -53,7 +50,7 @@ def release_connection(conn):
             # putconn devuelve la conexión al pool, NO la cierra
             db_pool.putconn(conn)
         except Exception as e:
-            print(f"Error devolviendo conexión: {e}")
+            pass
     else:
         # Si no está en el registro, la cerramos por seguridad
         conn.close()
