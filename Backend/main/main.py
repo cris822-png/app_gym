@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, EmailStr, Field
+from datetime import date
 import sys
 import os
 
@@ -9,6 +10,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from services.Creacion_usuario import crear_usuario_service
+from services.Creaicion_rutina import crear_rutina_service
 from utils.responses import standarize_response, custom_validation_exception_handler
 
 # Crear aplicación FastAPI
@@ -35,6 +37,11 @@ class CrearUsuarioRequest(BaseModel):
     peso: float = Field(..., gt=0, description="Peso en kg")
     altura: float = Field(..., gt=0, description="Altura en cm")
 
+class CrearRutinaRequest(BaseModel):
+    id_usuario: int = Field(..., gt=0, description="ID del usuario propietario")
+    name_rutina: str = Field(..., min_length=1, description="Nombre de la rutina")
+    fecha: date = Field(..., description="Fecha de la rutina (YYYY-MM-DD)")
+
 # ==================== Endpoints ====================
 
 @app.post("/api/usuarios", status_code=status.HTTP_201_CREATED)
@@ -55,6 +62,23 @@ async def crear_usuario(usuario: CrearUsuarioRequest):
         email=usuario.email,
         peso=usuario.peso,
         altura=usuario.altura
+    )
+
+
+@app.post("/api/rutinas", status_code=status.HTTP_201_CREATED)
+@standarize_response
+async def crear_rutina(rutina: CrearRutinaRequest):
+    """
+    Endpoint para crear una nueva rutina de entrenamiento.
+    
+    - **id_usuario**: ID del usuario propietario de la rutina (requerido)
+    - **name_rutina**: Nombre de la rutina (requerido)
+    - **fecha**: Fecha de la rutina en formato YYYY-MM-DD (requerido)
+    """
+    return crear_rutina_service(
+        id_usuario=rutina.id_usuario,
+        name_rutina=rutina.name_rutina,
+        fecha=rutina.fecha
     )
 
 
