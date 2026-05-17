@@ -84,6 +84,7 @@ def obtener_nutricion_usuario_service(id_usuario: int) -> list[dict]:
                 detail="No se pudo conectar a la base de datos"
             )
 
+        cursor = conn.cursor()
         cursor.execute("SELECT id_nutricion, comida, fecha_hora FROM nutricion WHERE id_usuario = %s ORDER BY fecha_hora DESC", (id_usuario,))
         filas = cursor.fetchall()
 
@@ -97,7 +98,9 @@ def obtener_nutricion_usuario_service(id_usuario: int) -> list[dict]:
             for fila in filas
         ]
 
-    except Exception:
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los datos de nutrición"
