@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:http/http.dart' as http;
 
@@ -10,7 +11,13 @@ import '../models/rutina.dart';
 import '../models/usuario.dart';
 
 class ApiService {
-  static const _baseUrl = 'http://10.0.2.2:8000/api';
+  static String get _baseUrl {
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:8000/api';
+    }
+    return 'http://localhost:8000/api';
+  }
+
   final http.Client _client;
 
   ApiService({http.Client? client}) : _client = client ?? http.Client();
