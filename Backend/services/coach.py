@@ -15,6 +15,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from database.configs.pgsql_connection import connect_bbdd_pgsql, release_connection
 
 
+def _usuario_tiene_columna_peso(cursor) -> bool:
+    cursor.execute(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = 'usuario' AND column_name = 'peso'"
+    )
+    return cursor.fetchone() is not None
+
+
 def _obtener_usuario(id_usuario: int) -> dict:
     conn = None
     try:
@@ -30,25 +37,44 @@ def _obtener_usuario(id_usuario: int) -> dict:
                 detail="No se pudo conectar a la base de datos"
             )
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id_usuario, name, surname, email, peso, altura, fecha_creacion "
-            "FROM usuario WHERE id_usuario = %s",
-            (id_usuario,)
-        )
-        usuario = cursor.fetchone()
-        if not usuario:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado"
+        if _usuario_tiene_columna_peso(cursor):
+            cursor.execute(
+                "SELECT id_usuario, name, surname, email, peso, altura, fecha_creacion "
+                "FROM usuario WHERE id_usuario = %s",
+                (id_usuario,)
             )
+            usuario = cursor.fetchone()
+            if not usuario:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado"
+                )
+            peso_valor = usuario[4]
+            altura_valor = usuario[5]
+            fecha_valor = usuario[6]
+        else:
+            cursor.execute(
+                "SELECT id_usuario, name, surname, email, altura, fecha_creacion "
+                "FROM usuario WHERE id_usuario = %s",
+                (id_usuario,)
+            )
+            usuario = cursor.fetchone()
+            if not usuario:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado"
+                )
+            peso_valor = 0.0
+            altura_valor = usuario[4]
+            fecha_valor = usuario[5]
         return {
             "id_usuario": usuario[0],
             "name": usuario[1],
             "surname": usuario[2],
             "email": usuario[3],
-            "peso": usuario[4],
-            "altura": usuario[5],
-            "fecha_creacion": usuario[6].isoformat()
+            "peso": peso_valor,
+            "altura": altura_valor,
+            "fecha_creacion": fecha_valor.isoformat()
         }
     finally:
         if conn:
@@ -123,7 +149,7 @@ def _obtener_nutricion(id_usuario: int) -> list[dict]:
             password=os.getenv("DB_PASSWORD")
         )
         cursor = conn.cursor()
-        cursor.execute("SELECT comida, time FROM nutricion WHERE id_usuario = %s ORDER BY time DESC", (id_usuario,))
+        cursor.execute("SELECT comida, fecha_hora FROM nutricion WHERE id_usuario = %s ORDER BY fecha_hora DESC", (id_usuario,))
         return [
             {"comida": fila[0], "time": fila[1].isoformat() if hasattr(fila[1], "isoformat") else str(fila[1])}
             for fila in cursor.fetchall()
@@ -143,7 +169,7 @@ def _obtener_progreso(id_usuario: int) -> list[dict]:
             password=os.getenv("DB_PASSWORD")
         )
         cursor = conn.cursor()
-        cursor.execute("SELECT peso, date, objetivo FROM progreso_usuario WHERE id_usuario = %s ORDER BY date DESC", (id_usuario,))
+        cursor.execute("SELECT peso, fecha, objetivo FROM progreso_usuario WHERE id_usuario = %s ORDER BY fecha DESC", (id_usuario,))
         return [
             {"peso": fila[0], "date": fila[1].isoformat() if hasattr(fila[1], "isoformat") else str(fila[1]), "objetivo": fila[2]}
             for fila in cursor.fetchall()

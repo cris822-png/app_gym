@@ -37,7 +37,7 @@ def crear_nutricion_service(id_usuario: int, comida: str, time: str) -> dict:
 
         cursor.execute(
             """
-            INSERT INTO nutricion (id_usuario, comida, time)
+            INSERT INTO nutricion (id_usuario, comida, fecha_hora)
             VALUES (%s, %s, %s)
             RETURNING id_nutricion
             """,
@@ -84,8 +84,7 @@ def obtener_nutricion_usuario_service(id_usuario: int) -> list[dict]:
                 detail="No se pudo conectar a la base de datos"
             )
 
-        cursor = conn.cursor()
-        cursor.execute("SELECT id_nutricion, comida, time FROM nutricion WHERE id_usuario = %s ORDER BY time DESC", (id_usuario,))
+        cursor.execute("SELECT id_nutricion, comida, fecha_hora FROM nutricion WHERE id_usuario = %s ORDER BY fecha_hora DESC", (id_usuario,))
         filas = cursor.fetchall()
 
         return [
