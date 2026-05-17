@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/coach_screen.dart';
+import 'screens/main_app.dart';
 
 void main() {
   runApp(const AppGym());
@@ -16,9 +16,7 @@ class AppGym extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green.shade700),
         useMaterial3: true,
       ),
-      home: const CoachScreen(
-        idUsuario: 1,
-      ),
+      home: const MainApp(),
     );
   }
 }

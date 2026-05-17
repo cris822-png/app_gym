@@ -7,6 +7,7 @@ import '../models/coach_recommendation.dart';
 import '../models/ejercicio.dart';
 import '../models/entrenamiento.dart';
 import '../models/nutricion.dart';
+import '../models/progreso.dart';
 import '../models/rutina.dart';
 import '../models/usuario.dart';
 
@@ -76,6 +77,12 @@ class ApiService {
     final data = await _request('GET', '/usuarios/$idUsuario/entrenamientos');
     final list = data['entrenamientos'] as List<dynamic>;
     return list.map((item) => Entrenamiento.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<ProgressEntry>> getProgreso(int idUsuario) async {
+    final data = await _request('GET', '/usuarios/$idUsuario/progreso');
+    final list = data['progreso'] as List<dynamic>;
+    return list.map((item) => ProgressEntry.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   Future<CoachRecommendation> getCoachRecommendation(int idUsuario) async {

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 360 640">
+  <style>
+    .bg{fill:#FFFFFF}
+    .header{fill:#1F2937;font-family:Inter, Arial, sans-serif;font-size:16px;font-weight:700}
+    .muted{fill:#556070;font-family:Inter, Arial, sans-serif;font-size:12px}
+    .bubble-user{fill:#DCF8E8}
+    .bubble-ai{fill:#F4F6F5}
+    .input{fill:#FBFEFC;stroke:#E6E9E6}
+  </style>
+  <rect class="bg" width="360" height="640"/>
+  <g transform="translate(16,16)">
+    <text class="header">Entrenador IA</text>
+    <text class="muted" transform="translate(0,20)">Pregúntale algo o revisa tus recomendaciones</text>
+  </g>
+  <!-- Messages -->
+  <g transform="translate(16,72)">
+    <rect class="bubble-ai" x="0" y="0" width="328" height="88" rx="10"/>
+    <text x="12" y="24" font-family="Inter" font-size="14" fill="#1F2937">Recomendación directa</text>
+    <text class="muted" x="12" y="44">Necesitas 4-5 entrenamientos/semana con foco en fuerza y déficit calibrado.</text>
+    <rect x="16" y="52" width="120" height="26" rx="8" fill="#00A86B"/>
+    <text fill="#FFFFFF" x="76" y="70" text-anchor="middle" font-family="Inter" font-size="12">Aplicar</text>
+  </g>
+  <g transform="translate(16,176)">
+    <rect class="bubble-user" x="60" y="0" width="268" height="52" rx="10"/>
+    <text x="72" y="32" font-family="Inter" font-size="13" fill="#1F2937">¿Cómo ajustar mi rutina esta semana?</text>
+  </g>
+  <g transform="translate(16,244)">
+    <rect class="bubble-ai" x="0" y="0" width="328" height="68" rx="10"/>
+    <text x="12" y="24" font-family="Inter" font-size="13" fill="#1F2937">Reduce volumen en piernas, añade un día de empuje. Prioriza sentadillas y press.</text>
+  </g>
+  <!-- Composer -->
+  <g transform="translate(16,540)">
+    <rect class="input" x="0" y="0" width="264" height="44" rx="10"/>
+    <text class="muted" x="12" y="28">Escribe un mensaje...</text>
+    <rect x="280" y="0" width="44" height="44" rx="10" fill="#00A86B"/>
+    <text x="302" y="30" text-anchor="middle" fill="#FFFFFF" font-family="Inter" font-weight="700">→</text>
+  </g>
+</svg>

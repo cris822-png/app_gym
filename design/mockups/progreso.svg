@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 360 640">
+  <style>
+    .bg{fill:#F7F9F7}
+    .title{fill:#1F2937;font-family:Inter, Arial, sans-serif;font-size:16px;font-weight:700}
+    .muted{fill:#556070;font-family:Inter, Arial, sans-serif;font-size:12px}
+    .card{fill:#FFFFFF;stroke:#E6E9E6}
+    .kpi{fill:#00A86B;font-family:Inter;font-weight:700}
+  </style>
+  <rect class="bg" width="360" height="640"/>
+  <g transform="translate(16,20)">
+    <text class="title">Progreso</text>
+    <text class="muted" transform="translate(0,20)">Visualiza tus métricas y marcas personales</text>
+  </g>
+  <!-- Chart placeholder -->
+  <g transform="translate(16,64)">
+    <rect class="card" width="328" height="160" rx="12"/>
+    <text class="muted" x="16" y="24">Peso (kg)</text>
+    <!-- simple line path -->
+    <path d="M24 120 C 64 90, 120 80, 160 96 C 200 112, 256 100, 304 128" stroke="#1E88E5" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </g>
+  <!-- KPIs -->
+  <g transform="translate(16,240)">
+    <rect class="card" x="0" y="0" width="104" height="84" rx="10"/>
+    <text class="kpi" x="12" y="36">+5 kg</text>
+    <text class="muted" x="12" y="56">PR fuerza</text>
+    <rect class="card" x="128" y="0" width="216" height="84" rx="10"/>
+    <text class="kpi" x="140" y="36">72.0 kg</text>
+    <text class="muted" x="140" y="56">Último peso</text>
+  </g>
+  <!-- Measurements list -->
+  <g transform="translate(16,348)">
+    <rect width="328" height="120" rx="12" class="card"/>
+    <text class="muted" x="16" y="24">Registros</text>
+    <text x="16" y="46" font-family="Inter" font-size="13" fill="#1F2937">2026-05-10 — 72.0 kg — 12% grasa</text>
+    <text x="16" y="66" font-family="Inter" font-size="13" fill="#1F2937">2026-04-26 — 73.5 kg — 12.8% grasa</text>
+  </g>
+  <!-- Add measurement button -->
+  <g transform="translate(16,492)">
+    <rect x="0" y="0" width="328" height="44" rx="10" fill="#00A86B"/>
+    <text fill="#FFFFFF" x="164" y="28" text-anchor="middle" font-family="Inter" font-weight="700">Agregar medición</text>
+  </g>
+</svg>

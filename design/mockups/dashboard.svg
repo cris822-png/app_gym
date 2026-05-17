@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 360 640">
+  <style>
+    .bg{fill:#F7F9F7}
+    .card{fill:#FFFFFF;stroke:#E6E9E6;stroke-width:1}
+    .title{fill:#1F2937;font-family:Inter, Arial, sans-serif;font-size:16px;font-weight:700}
+    .muted{fill:#556070;font-family:Inter, Arial, sans-serif;font-size:12px}
+    .cta{fill:#00A86B}
+  </style>
+  <rect class="bg" width="360" height="640"/>
+  <!-- Header -->
+  <g transform="translate(16,20)">
+    <text class="title">Hola, Usuario</text>
+    <text class="muted" transform="translate(0,20)">Resumen rápido de hoy</text>
+  </g>
+  <!-- Summary row -->
+  <g transform="translate(16,64)">
+    <rect class="card" x="0" y="0" width="104" height="72" rx="10"/>
+    <text class="title" x="12" y="28">72.0 kg</text>
+    <text class="muted" x="12" y="48">Peso</text>
+    <rect class="card" x="128" y="0" width="104" height="72" rx="10"/>
+    <text class="title" x="140" y="28">12%</text>
+    <text class="muted" x="140" y="48">Grasa</text>
+    <rect class="card" x="256" y="0" width="88" height="72" rx="10"/>
+    <text class="title" x="268" y="28">3</text>
+    <text class="muted" x="268" y="48">Sesiones</text>
+  </g>
+  <!-- Recommendation card -->
+  <g transform="translate(16,156)">
+    <rect class="card" width="328" height="120" rx="12"/>
+    <text class="title" x="16" y="28">Recomendación directa</text>
+    <text class="muted" x="16" y="48">Tienes 72.0 kg y 186 cm. Tu objetivo es 12% de grasa corporal. Necesitas 4-5 entrenamientos/semana enfocados en fuerza.</text>
+    <rect x="16" y="74" width="120" height="30" rx="8" fill="#00A86B"/>
+    <text fill="#FFFFFF" x="76" y="96" text-anchor="middle" font-family="Inter" font-weight="600">Ver detalle</text>
+    <rect x="156" y="74" width="120" height="30" rx="8" fill="#FFFFFF" stroke="#E6E9E6"/>
+    <text fill="#00A86B" x="216" y="96" text-anchor="middle" font-family="Inter" font-weight="600">Abrir chat</text>
+  </g>
+  <!-- Next workout card -->
+  <g transform="translate(16,292)">
+    <rect class="card" width="328" height="120" rx="12"/>
+    <text class="title" x="16" y="28">Rutina sugerida hoy</text>
+    <text class="muted" x="16" y="48">Fuerza - Piernas. Sentadillas, Peso muerto, Lunges.</text>
+    <!-- Big CTA -->
+    <rect x="16" y="74" width="296" height="40" rx="10" fill="#00A86B"/>
+    <text fill="#FFFFFF" x="164" y="100" text-anchor="middle" font-family="Inter" font-weight="700">Iniciar Entreno</text>
+  </g>
+  <!-- Bottom nav -->
+  <g transform="translate(0,580)">
+    <rect x="0" y="0" width="360" height="60" fill="#FFFFFF" stroke="#E6E9E6"/>
+    <text x="36" y="38" font-family="Inter" font-size="12" fill="#00A86B">Inicio</text>
+    <text x="108" y="38" font-family="Inter" font-size="12" fill="#556070">Entreno</text>
+    <text x="204" y="38" font-family="Inter" font-size="12" fill="#556070">Chat IA</text>
+    <text x="288" y="38" font-family="Inter" font-size="12" fill="#556070">Progreso</text>
+  </g>
+</svg>

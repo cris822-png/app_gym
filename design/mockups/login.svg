@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 360 640">
+  <style>
+    .bg{fill:#F7F9F7}
+    .card{fill:#FFFFFF;stroke:#E6E9E6;stroke-width:1;filter:url(#s)}
+    .title{fill:#1F2937;font-family:Inter, Arial, sans-serif;font-size:20px;font-weight:700}
+    .subtitle{fill:#556070;font-family:Inter, Arial, sans-serif;font-size:12px}
+    .btn-primary{fill:#00A86B;rx:8}
+    .btn-text{fill:#FFFFFF;font-family:Inter, Arial, sans-serif;font-size:14px;font-weight:600}
+    .link{fill:#1E88E5;font-family:Inter, Arial, sans-serif;font-size:12px}
+  </style>
+  <rect class="bg" width="360" height="640"/>
+  <defs>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+  <!-- Header -->
+  <g transform="translate(24,32)">
+    <text class="title">Coach Gym IA</text>
+    <text class="subtitle" transform="translate(0,26)">Tu entrenador personal impulsado por IA</text>
+  </g>
+  <!-- Card -->
+  <g transform="translate(24,120)">
+    <rect class="card" width="312" height="260" rx="12"/>
+    <text class="title" transform="translate(16,32)">Bienvenido</text>
+    <text class="subtitle" transform="translate(16,56)">Inicia sesión para acceder a tus rutinas y recomendaciones personalizadas.</text>
+    <!-- Inputs -->
+    <rect x="16" y="90" width="280" height="40" rx="8" fill="#FBFEFC" stroke="#E6E9E6"/>
+    <text class="subtitle" x="28" y="116">Correo electrónico</text>
+    <rect x="16" y="140" width="280" height="40" rx="8" fill="#FBFEFC" stroke="#E6E9E6"/>
+    <text class="subtitle" x="28" y="166">Contraseña</text>
+    <!-- Buttons -->
+    <g transform="translate(16,196)">
+      <rect x="0" y="0" width="280" height="44" rx="10" fill="#00A86B"/>
+      <text class="btn-text" x="140" y="28" text-anchor="middle">Iniciar sesión</text>
+    </g>
+    <text class="link" x="16" y="266">¿No tienes cuenta? Crear cuenta</text>
+  </g>
+  <!-- Footer small note -->
+  <text class="subtitle" x="24" y="620">Diseño: Dashboard | Chat IA | Progreso</text>
+</svg>
