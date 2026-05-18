@@ -3,6 +3,7 @@ import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'chat_screen.dart';
 import 'progress_screen.dart';
+import 'profile_screen.dart';
 import 'workout_screen.dart';
 
 class MainApp extends StatefulWidget {
@@ -31,6 +32,13 @@ class _MainAppState extends State<MainApp> {
     });
   }
 
+  void _onLogout() {
+    setState(() {
+      _loggedIn = false;
+      _selectedIndex = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_loggedIn) {
@@ -46,7 +54,7 @@ class _MainAppState extends State<MainApp> {
       const WorkoutScreen(),
       const ChatScreen(),
       const ProgressScreen(),
-      const Center(child: Text('Perfil')), // Placeholder
+      ProfileScreen(onLogout: _onLogout),
     ];
 
     return Scaffold(
