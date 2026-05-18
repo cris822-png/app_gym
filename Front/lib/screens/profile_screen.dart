@@ -5,9 +5,10 @@ import '../models/usuario.dart';
 import '../services/api_service.dart';
 
 class ProfileScreen extends StatefulWidget {
+  final int userId;
   final VoidCallback onLogout;
 
-  const ProfileScreen({super.key, required this.onLogout});
+  const ProfileScreen({super.key, required this.userId, required this.onLogout});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();

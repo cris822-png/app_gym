@@ -4,12 +4,18 @@ from fastapi.exceptions import RequestValidationError
 from datetime import date
 import sys
 import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde el .env raíz
+dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(dotenv_path)
 
 # Agregar el directorio Backend al path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from main.schemas import (
     CrearUsuarioRequest,
+    LoginRequest,
     CrearRutinaRequest,
     CrearEjercicioRequest,
     CrearNutricionRequest,
@@ -17,6 +23,7 @@ from main.schemas import (
 )
 from services.usuarios import (
     crear_usuario_service,
+    login_usuario_service,
     obtener_usuario_service,
     obtener_progreso_usuario_service,
 )
@@ -50,8 +57,18 @@ async def crear_usuario(usuario: CrearUsuarioRequest):
         name=usuario.name,
         surname=usuario.surname,
         email=usuario.email,
+        password=usuario.password,
         peso=usuario.peso,
         altura=usuario.altura,
+    )
+
+
+@app.post("/api/auth/login")
+@standarize_response
+async def login_usuario(request: LoginRequest):
+    return login_usuario_service(
+        email=request.email,
+        password=request.password,
     )
 
 

@@ -4,7 +4,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
 
-load_dotenv()
+dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(dotenv_path)
 
 # Agregar el directorio Backend al path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -12,7 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from database.configs.pgsql_connection import connect_bbdd_pgsql, release_connection
 
 
-def crear_usuario_service(name: str, surname: str, email: str, peso: float, altura: float) -> dict:
+def crear_usuario_service(name: str, surname: str, email: str, password: str, peso: float, altura: float) -> dict:
     """
     Servicio para crear un nuevo usuario en la base de datos.
     
@@ -20,6 +21,7 @@ def crear_usuario_service(name: str, surname: str, email: str, peso: float, altu
         name: Nombre del usuario
         surname: Apellido del usuario
         email: Email del usuario (debe ser único)
+        password: Contraseña del usuario
         peso: Peso en kg
         altura: Altura en cm
         
@@ -59,11 +61,11 @@ def crear_usuario_service(name: str, surname: str, email: str, peso: float, altu
         # Insertar el nuevo usuario
         cursor.execute(
             """
-            INSERT INTO usuario (name, surname, email, peso, altura, fecha_creacion)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO usuario (name, surname, email, password, peso, altura, fecha_creacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id_usuario
             """,
-            (name, surname, email, peso, altura, datetime.now())
+            (name, surname, email, password, peso, altura, datetime.now())
         )
         
         id_usuario = cursor.fetchone()[0]

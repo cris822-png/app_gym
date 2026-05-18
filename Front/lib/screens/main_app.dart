@@ -16,11 +16,13 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> {
   bool _loggedIn = false;
   int _selectedIndex = 0;
+  int? _userId;
   String _userName = 'Usuario';
 
-  void _onLoginSuccess(String userName) {
+  void _onLoginSuccess(int userId, String userName) {
     setState(() {
       _loggedIn = true;
+      _userId = userId;
       _userName = userName;
       _selectedIndex = 0;
     });
@@ -35,26 +37,28 @@ class _MainAppState extends State<MainApp> {
   void _onLogout() {
     setState(() {
       _loggedIn = false;
+      _userId = null;
       _selectedIndex = 0;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_loggedIn) {
+    if (!_loggedIn || _userId == null) {
       return LoginScreen(onLogin: _onLoginSuccess);
     }
 
     final pages = <Widget>[
       DashboardScreen(
+        userId: _userId!,
         userName: _userName,
         onStartWorkout: () => _onItemTapped(1),
         onOpenChat: () => _onItemTapped(2),
       ),
       const WorkoutScreen(),
-      const ChatScreen(),
-      const ProgressScreen(),
-      ProfileScreen(onLogout: _onLogout),
+      ChatScreen(userId: _userId!),
+      ProgressScreen(userId: _userId!),
+      ProfileScreen(userId: _userId!, onLogout: _onLogout),
     ];
 
     return Scaffold(

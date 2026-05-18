@@ -4,7 +4,9 @@ import '../models/progreso.dart';
 import '../services/api_service.dart';
 
 class ProgressScreen extends StatefulWidget {
-  const ProgressScreen({super.key});
+  final int userId;
+
+  const ProgressScreen({super.key, required this.userId});
 
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
@@ -28,7 +30,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       _error = null;
     });
     try {
-      final entries = await _apiService.getProgreso(1);
+      final entries = await _apiService.getProgreso(widget.userId);
       setState(() {
         _entries = entries;
       });

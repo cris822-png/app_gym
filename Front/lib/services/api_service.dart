@@ -55,6 +55,14 @@ class ApiService {
     return Usuario.fromJson(data);
   }
 
+  Future<Usuario> login(String email, String password) async {
+    final data = await _request('POST', '/auth/login', body: {
+      'email': email,
+      'password': password,
+    });
+    return Usuario.fromJson(data);
+  }
+
   Future<List<Rutina>> getRutinas(int idUsuario) async {
     final data = await _request('GET', '/usuarios/$idUsuario/rutinas');
     final list = data['rutinas'] as List<dynamic>;

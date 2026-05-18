@@ -4,8 +4,8 @@
 SELECT id_usuario FROM usuario WHERE email = %s;
 
 -- Crear nuevo usuario
-INSERT INTO usuario (name, surname, email, peso, altura, fecha_creacion)
-VALUES (%s, %s, %s, %s, %s, %s)
+INSERT INTO usuario (name, surname, email, password, peso, altura, fecha_creacion)
+VALUES (%s, %s, %s, %s, %s, %s, %s)
 RETURNING id_usuario;
 
 -- Obtener usuario por ID
@@ -20,7 +20,7 @@ ORDER BY fecha_creacion DESC;
 
 -- Actualizar usuario
 UPDATE usuario 
-SET name = %s, surname = %s, email = %s, peso = %s, altura = %s 
+SET name = %s, surname = %s, email = %s, password = %s, peso = %s, altura = %s 
 WHERE id_usuario = %s;
 
 -- Eliminar usuario

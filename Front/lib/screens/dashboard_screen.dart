@@ -7,11 +7,12 @@ import '../models/usuario.dart';
 import '../services/api_service.dart';
 
 class DashboardScreen extends StatefulWidget {
+  final int userId;
   final String userName;
   final VoidCallback onStartWorkout;
   final VoidCallback onOpenChat;
 
-  const DashboardScreen({super.key, required this.userName, required this.onStartWorkout, required this.onOpenChat});
+  const DashboardScreen({super.key, required this.userId, required this.userName, required this.onStartWorkout, required this.onOpenChat});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -39,10 +40,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      final usuario = await _apiService.getUsuario(1);
-      final recommendation = await _apiService.getCoachRecommendation(1);
-      final nutricion = await _apiService.getNutricion(1);
-      final entrenamientos = await _apiService.getEntrenamientos(1);
+      final usuario = await _apiService.getUsuario(widget.userId);
+      final recommendation = await _apiService.getCoachRecommendation(widget.userId);
+      final nutricion = await _apiService.getNutricion(widget.userId);
+      final entrenamientos = await _apiService.getEntrenamientos(widget.userId);
 
       setState(() {
         _usuario = usuario;

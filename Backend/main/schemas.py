@@ -15,7 +15,12 @@ class UsuarioBase(BaseModel):
 
 
 class CrearUsuarioRequest(UsuarioBase):
-    pass
+    password: str = Field(..., min_length=6, max_length=100, description="Contraseña del usuario")
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr = Field(..., description="Correo electrónico del usuario")
+    password: str = Field(..., min_length=6, max_length=100, description="Contraseña del usuario")
 
 
 class UsuarioResponse(UsuarioBase):

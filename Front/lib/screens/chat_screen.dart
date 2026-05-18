@@ -4,7 +4,9 @@ import '../models/coach_recommendation.dart';
 import '../services/api_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final int userId;
+
+  const ChatScreen({super.key, required this.userId});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -31,7 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final recommendation = await _apiService.getCoachRecommendation(1);
+      final recommendation = await _apiService.getCoachRecommendation(widget.userId);
       setState(() {
         _recommendation = recommendation;
       });

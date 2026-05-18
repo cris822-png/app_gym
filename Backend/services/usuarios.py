@@ -1,10 +1,15 @@
 import sys
 import os
+import hashlib
+import hmac
+import secrets
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
 
-load_dotenv()
+# Cargar variables de entorno desde el .env raíz aunque el app se inicie desde Backend/
+dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(dotenv_path)
 
 # Agregar el directorio Backend al path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -19,7 +24,36 @@ def _usuario_tiene_columna_peso(cursor) -> bool:
     return cursor.fetchone() is not None
 
 
-def crear_usuario_service(name: str, surname: str, email: str, peso: float, altura: float) -> dict:
+def _hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return f"{salt}${hashed.hex()}"
+
+
+def _is_hashed_password(stored_password: str) -> bool:
+    if '$' not in stored_password:
+        return False
+    parts = stored_password.split('$', 1)
+    return len(parts) == 2 and all(parts)
+
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return f"{salt}${hashed.hex()}"
+
+
+def _verify_password(password: str, stored_password: str) -> bool:
+    if not _is_hashed_password(stored_password):
+        return password == stored_password
+
+    salt, expected_hash = stored_password.split('$', 1)
+    hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000).hex()
+    return hmac.compare_digest(hashed, expected_hash)
+
+
+def crear_usuario_service(name: str, surname: str, email: str, password: str, peso: float, altura: float) -> dict:
+    hashed_password = _hash_password(password)
     conn = None
     try:
         conn = connect_bbdd_pgsql(
@@ -46,20 +80,20 @@ def crear_usuario_service(name: str, surname: str, email: str, peso: float, altu
         if _usuario_tiene_columna_peso(cursor):
             cursor.execute(
                 """
-                INSERT INTO usuario (name, surname, email, peso, altura, fecha_creacion)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO usuario (name, surname, email, password, peso, altura, fecha_creacion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_usuario, fecha_creacion
                 """,
-                (name, surname, email, peso, altura, datetime.now())
+                (name, surname, email, hashed_password, peso, altura, datetime.now())
             )
         else:
             cursor.execute(
                 """
-                INSERT INTO usuario (name, surname, email, altura, fecha_creacion)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO usuario (name, surname, email, password, altura, fecha_creacion)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id_usuario, fecha_creacion
                 """,
-                (name, surname, email, altura, datetime.now())
+                (name, surname, email, hashed_password, altura, datetime.now())
             )
 
         resultado = cursor.fetchone()
@@ -153,6 +187,92 @@ def obtener_usuario_service(id_usuario: int) -> dict:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener el usuario"
+        )
+    finally:
+        if conn:
+            release_connection(conn)
+
+
+def login_usuario_service(email: str, password: str) -> dict:
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+        if _usuario_tiene_columna_peso(cursor):
+            cursor.execute(
+                "SELECT id_usuario, name, surname, email, password, peso, altura, fecha_creacion "
+                "FROM usuario WHERE email = %s",
+                (email,)
+            )
+            usuario = cursor.fetchone()
+            if not usuario or not _verify_password(password, usuario[4]):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Correo o contraseña incorrectos"
+                )
+
+            if usuario and not _is_hashed_password(usuario[4]):
+                cursor.execute(
+                    "UPDATE usuario SET password = %s WHERE id_usuario = %s",
+                    (_hash_password(password), usuario[0])
+                )
+                conn.commit()
+
+            peso_valor = usuario[5]
+            altura_valor = usuario[6]
+            fecha_valor = usuario[7]
+        else:
+            cursor.execute(
+                "SELECT id_usuario, name, surname, email, password, altura, fecha_creacion "
+                "FROM usuario WHERE email = %s",
+                (email,)
+            )
+            usuario = cursor.fetchone()
+            if not usuario or not _verify_password(password, usuario[4]):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Correo o contraseña incorrectos"
+                )
+
+            if usuario and not _is_hashed_password(usuario[4]):
+                cursor.execute(
+                    "UPDATE usuario SET password = %s WHERE id_usuario = %s",
+                    (_hash_password(password), usuario[0])
+                )
+                conn.commit()
+
+            peso_valor = 0.0
+            altura_valor = usuario[5]
+            fecha_valor = usuario[6]
+
+        return {
+            "id_usuario": usuario[0],
+            "name": usuario[1],
+            "surname": usuario[2],
+            "email": usuario[3],
+            "peso": peso_valor,
+            "altura": altura_valor,
+            "fecha_creacion": fecha_valor.isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al autenticar el usuario"
         )
     finally:
         if conn:

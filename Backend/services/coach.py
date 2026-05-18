@@ -7,7 +7,8 @@ from urllib.error import URLError, HTTPError
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
 
-load_dotenv()
+dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(dotenv_path)
 
 # Agregar el directorio Backend al path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

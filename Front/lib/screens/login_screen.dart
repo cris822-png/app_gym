@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
+
 class LoginScreen extends StatefulWidget {
-  final void Function(String userName) onLogin;
+  final void Function(int userId, String userName) onLogin;
 
   const LoginScreen({super.key, required this.onLogin});
 
@@ -13,24 +15,35 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final ApiService _apiService = ApiService();
   bool _submitting = false;
+  String? _errorMessage;
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _submitting = true;
+      _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 500));
     final email = _emailController.text.trim();
-    final userName = email.split('@').first.replaceAll('.', ' ').replaceFirstMapped(RegExp(r'^.'), (m) => m.group(0)!.toUpperCase());
+    final password = _passwordController.text.trim();
 
-    widget.onLogin(userName);
-
-    setState(() {
-      _submitting = false;
-    });
+    try {
+      final usuario = await _apiService.login(email, password);
+      widget.onLogin(usuario.idUsuario, usuario.name);
+    } catch (error) {
+      setState(() {
+        _errorMessage = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -63,6 +76,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 12),
                   const Text('Accede a tu cuenta y comienza tu plan personalizado.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.white70)),
                   const SizedBox(height: 32),
+                  if (_errorMessage != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
