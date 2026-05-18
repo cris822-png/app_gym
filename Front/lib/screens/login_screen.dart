@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final void Function(int userId, String userName) onLogin;
@@ -160,8 +161,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Text('¿Olvidaste tu contraseña?', style: TextStyle(color: Color(0xFF34A853))),
                         ),
                         const SizedBox(height: 8),
-                        Row(
-                          children: const [
+                        const Row(
+                          children: [
                             Expanded(child: Divider()),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: 10),
@@ -186,7 +187,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
                   TextButton(
-                    onPressed: _submitting ? null : () {},
+                    onPressed: _submitting
+                        ? null
+                        : () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => SignupScreen(onLogin: widget.onLogin),
+                              ),
+                            );
+                          },
                     child: const Text('¿Aún no tienes cuenta? Crea una', style: TextStyle(color: Colors.white)),
                   ),
                 ],

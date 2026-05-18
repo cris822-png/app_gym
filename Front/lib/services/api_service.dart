@@ -63,6 +63,24 @@ class ApiService {
     return Usuario.fromJson(data);
   }
 
+  Future<void> registerUser({
+    required String name,
+    required String surname,
+    required String email,
+    required String password,
+    required double peso,
+    required double altura,
+  }) async {
+    await _request('POST', '/usuarios', body: {
+      'name': name,
+      'surname': surname,
+      'email': email,
+      'password': password,
+      'peso': peso,
+      'altura': altura,
+    });
+  }
+
   Future<List<Rutina>> getRutinas(int idUsuario) async {
     final data = await _request('GET', '/usuarios/$idUsuario/rutinas');
     final list = data['rutinas'] as List<dynamic>;

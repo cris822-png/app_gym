@@ -33,7 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      final usuario = await _apiService.getUsuario(1);
+      final usuario = await _apiService.getUsuario(widget.userId);
       setState(() => _usuario = usuario);
     } catch (e) {
       setState(() => _error = e.toString());
