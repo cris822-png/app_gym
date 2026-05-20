@@ -34,6 +34,7 @@ class ApiService {
     final response = await switch (method) {
       'GET' => _client.get(uri, headers: headers),
       'POST' => _client.post(uri, headers: headers, body: jsonEncode(body)),
+      'PUT' => _client.put(uri, headers: headers, body: jsonEncode(body)),
       _ => throw ArgumentError('Método HTTP no soportado: $method'),
     };
 
@@ -52,6 +53,14 @@ class ApiService {
 
   Future<Usuario> getUsuario(int idUsuario) async {
     final data = await _request('GET', '/usuarios/$idUsuario');
+    return Usuario.fromJson(data);
+  }
+
+  Future<Usuario> actualizarUsuarioObjetivos(int idUsuario, String objetivoPorcentage, String objetivoPeso) async {
+    final data = await _request('PUT', '/usuarios/$idUsuario', body: {
+      'objetivo_porcentage': objetivoPorcentage.isEmpty ? null : objetivoPorcentage,
+      'objetivo_peso': objetivoPeso.isEmpty ? null : objetivoPeso,
+    });
     return Usuario.fromJson(data);
   }
 
@@ -109,6 +118,13 @@ class ApiService {
     final data = await _request('GET', '/usuarios/$idUsuario/progreso');
     final list = data['progreso'] as List<dynamic>;
     return list.map((item) => ProgressEntry.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<ProgressEntry> registrarProgreso(int idUsuario, double peso) async {
+    final data = await _request('POST', '/usuarios/$idUsuario/progreso', body: {
+      'peso': peso,
+    });
+    return ProgressEntry.fromJson(data);
   }
 
   Future<CoachRecommendation> getCoachRecommendation(int idUsuario) async {

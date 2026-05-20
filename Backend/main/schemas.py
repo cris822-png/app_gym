@@ -12,15 +12,26 @@ class UsuarioBase(BaseModel):
     email: EmailStr = Field(..., description="Email del usuario")
     peso: float = Field(..., gt=0, description="Peso en kg")
     altura: float = Field(..., gt=0, description="Altura en cm")
+    objetivo_porcentage: Optional[str] = Field(None, description="Porcentaje objetivo de grasa")
+    objetivo_peso: Optional[str] = Field(None, description="Peso objetivo")
 
 
 class CrearUsuarioRequest(UsuarioBase):
     password: str = Field(..., min_length=6, max_length=100, description="Contraseña del usuario")
 
 
+class ActualizarUsuarioRequest(BaseModel):
+    objetivo_porcentage: Optional[str] = Field(None, description="Porcentaje objetivo de grasa")
+    objetivo_peso: Optional[str] = Field(None, description="Peso objetivo")
+
+
 class LoginRequest(BaseModel):
     email: EmailStr = Field(..., description="Correo electrónico del usuario")
     password: str = Field(..., min_length=6, max_length=100, description="Contraseña del usuario")
+
+
+class CrearProgresoRequest(BaseModel):
+    peso: float = Field(..., gt=0, description="Peso registrado en kg")
 
 
 class UsuarioResponse(UsuarioBase):

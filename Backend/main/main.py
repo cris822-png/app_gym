@@ -16,6 +16,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from main.schemas import (
     CrearUsuarioRequest,
     LoginRequest,
+    ActualizarUsuarioRequest,
+    CrearProgresoRequest,
     CrearRutinaRequest,
     CrearEjercicioRequest,
     CrearNutricionRequest,
@@ -25,7 +27,9 @@ from services.usuarios import (
     crear_usuario_service,
     login_usuario_service,
     obtener_usuario_service,
+    actualizar_usuario_service,
     obtener_progreso_usuario_service,
+    registrar_progreso_usuario_service,
 )
 from services.rutinas import crear_rutina_service, obtener_rutinas_usuario_service
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
@@ -60,6 +64,8 @@ async def crear_usuario(usuario: CrearUsuarioRequest):
         password=usuario.password,
         peso=usuario.peso,
         altura=usuario.altura,
+        objetivo_porcentage=usuario.objetivo_porcentage,
+        objetivo_peso=usuario.objetivo_peso,
     )
 
 
@@ -82,6 +88,25 @@ async def obtener_usuario(id_usuario: int):
 @standarize_response
 async def obtener_progreso_usuario(id_usuario: int):
     return {"progreso": obtener_progreso_usuario_service(id_usuario)}
+
+
+@app.post("/api/usuarios/{id_usuario}/progreso", status_code=status.HTTP_201_CREATED)
+@standarize_response
+async def registrar_progreso_usuario(id_usuario: int, progreso: CrearProgresoRequest):
+    return registrar_progreso_usuario_service(
+        id_usuario=id_usuario,
+        peso=progreso.peso,
+    )
+
+
+@app.put("/api/usuarios/{id_usuario}")
+@standarize_response
+async def actualizar_usuario(id_usuario: int, usuario: ActualizarUsuarioRequest):
+    return actualizar_usuario_service(
+        id_usuario=id_usuario,
+        objetivo_porcentage=usuario.objetivo_porcentage,
+        objetivo_peso=usuario.objetivo_peso,
+    )
 
 
 @app.post("/api/rutinas", status_code=status.HTTP_201_CREATED)

@@ -16,8 +16,12 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService _apiService = ApiService();
+  final TextEditingController _objetivoPercentageController = TextEditingController();
+  final TextEditingController _objetivoPesoController = TextEditingController();
   bool _loading = true;
+  bool _savingObjectives = false;
   String? _error;
+  String? _formError;
   Usuario? _usuario;
 
   @override
@@ -30,11 +34,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _formError = null;
     });
 
     try {
       final usuario = await _apiService.getUsuario(widget.userId);
-      setState(() => _usuario = usuario);
+      setState(() {
+        _usuario = usuario;
+        _objetivoPercentageController.text = usuario.objetivoPorcentage ?? '';
+        _objetivoPesoController.text = usuario.objetivoPeso ?? '';
+      });
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -59,9 +68,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 20),
                       _buildInfoCard('Email', _usuario?.email ?? '-'),
                       const SizedBox(height: 12),
+                      _buildInfoCard('Objetivo grasa', _usuario?.objetivoPorcentage ?? 'Sin objetivo registrado'),
+                      const SizedBox(height: 12),
+                      _buildInfoCard('Objetivo peso', _usuario?.objetivoPeso ?? 'Sin objetivo registrado'),
+                      const SizedBox(height: 12),
                       _buildInfoCard('Peso', '${_usuario?.peso.toStringAsFixed(1)} kg'),
                       const SizedBox(height: 12),
                       _buildInfoCard('Altura', '${_usuario?.altura.toStringAsFixed(0)} cm'),
+                      const SizedBox(height: 20),
+                      _buildObjectiveForm(),
                       const SizedBox(height: 20),
                       _buildRoutineSummaryCard(),
                       const SizedBox(height: 20),
@@ -103,15 +118,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildObjectiveForm() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Objetivos', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 12),
+            if (_formError != null) ...[
+              Text(_formError!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 12),
+            ],
+            TextField(
+              controller: _objetivoPercentageController,
+              decoration: const InputDecoration(
+                labelText: 'Objetivo de grasa (%)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _objetivoPesoController,
+              decoration: const InputDecoration(
+                labelText: 'Objetivo de peso',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _savingObjectives ? null : _saveObjectives,
+              child: _savingObjectives ? const CircularProgressIndicator(color: Colors.white) : const Text('Guardar objetivos'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRoutineSummaryCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.green.shade700,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+      child: const Padding(
+        padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text('Rutina actual', style: TextStyle(color: Colors.white70)),
             SizedBox(height: 8),
             Text('Full Body Pro', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
@@ -152,8 +207,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _saveObjectives() async {
+    setState(() {
+      _savingObjectives = true;
+      _formError = null;
+    });
+
+    try {
+      final usuario = await _apiService.actualizarUsuarioObjetivos(
+        widget.userId,
+        _objetivoPercentageController.text.trim(),
+        _objetivoPesoController.text.trim(),
+      );
+      setState(() {
+        _usuario = usuario;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Objetivos guardados correctamente')));
+      }
+    } catch (e) {
+      setState(() {
+        _formError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _savingObjectives = false;
+        });
+      }
+    }
+  }
+
   void _openCreateRoutine() {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreateRoutineScreen()));
+  }
+
+  @override
+  void dispose() {
+    _objetivoPercentageController.dispose();
+    _objetivoPesoController.dispose();
+    super.dispose();
   }
 
   void _showLogoutDialog(BuildContext context) {

@@ -170,9 +170,9 @@ def _obtener_progreso(id_usuario: int) -> list[dict]:
             password=os.getenv("DB_PASSWORD")
         )
         cursor = conn.cursor()
-        cursor.execute("SELECT peso, fecha, objetivo FROM progreso_usuario WHERE id_usuario = %s ORDER BY fecha DESC", (id_usuario,))
+        cursor.execute("SELECT peso, fecha FROM progreso_usuario WHERE id_usuario = %s ORDER BY fecha DESC", (id_usuario,))
         return [
-            {"peso": fila[0], "date": fila[1].isoformat() if hasattr(fila[1], "isoformat") else str(fila[1]), "objetivo": fila[2]}
+            {"peso": fila[0], "date": fila[1].isoformat() if hasattr(fila[1], "isoformat") else str(fila[1])}
             for fila in cursor.fetchall()
         ]
     finally:
@@ -244,7 +244,7 @@ def _generar_mensaje_directo(usuario: dict, rutinas: list[dict], frecuencia: int
     )
     if progreso:
         ultimo = progreso[0]
-        resumen += f" Último registro: {ultimo['peso']} kg con objetivo '{ultimo['objetivo']}'."
+        resumen += f" Último registro: {ultimo['peso']} kg."
 
     return (
         f"{resumen} {recomendacion_frecuencia} "
@@ -259,7 +259,7 @@ def _construir_prompt(usuario: dict, rutinas: list[dict], entrenamientos: list[d
         f"Usuario: {usuario['name']} {usuario['surname']}, {usuario['peso']} kg, {usuario['altura']} cm."
     ]
     if progreso:
-        prompt.append(f"Historial de peso / objetivo: {progreso[0]['peso']} kg, objetivo {progreso[0]['objetivo']}.")
+        prompt.append(f"Historial de peso: {progreso[0]['peso']} kg.")
     prompt.append(f"Rutinas registradas: {len(rutinas)}.")
     prompt.append(f"Entrenamientos recientes: {len(entrenamientos)} registros.")
     if nutricion:
