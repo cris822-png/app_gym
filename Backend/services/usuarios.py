@@ -227,10 +227,10 @@ def obtener_usuario_service(id_usuario: int) -> dict:
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al obtener el usuario"
+            detail=f"Error al obtener el usuario: {str(e)}"
         )
     finally:
         if conn:
@@ -262,10 +262,17 @@ def actualizar_usuario_service(id_usuario: int, objetivo_porcentage: str | None 
             )
 
         if not _usuario_tiene_columnas_objetivo(cursor):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Las columnas de objetivo no existen en la base de datos"
-            )
+            # Intentar crear las columnas de objetivo si no existen (migración automática segura)
+            try:
+                cursor.execute("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS objetivo_porcentage VARCHAR(100);")
+                cursor.execute("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS objetivo_peso VARCHAR(100);")
+                conn.commit()
+            except Exception as e:
+                # No se pudo crear columnas automáticamente; informar error claro
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Las columnas de objetivo no existen y no se pudieron crear automáticamente: {str(e)}"
+                )
 
         updates = []
         params = []
@@ -277,38 +284,24 @@ def actualizar_usuario_service(id_usuario: int, objetivo_porcentage: str | None 
             params.append(objetivo_peso.strip())
 
         if updates:
+            # Ejecutar UPDATE sin RETURNING para evitar referenciar columnas que puedan no existir
             cursor.execute(
-                f"UPDATE usuario SET {', '.join(updates)} WHERE id_usuario = %s RETURNING id_usuario, name, surname, email, peso, altura, objetivo_porcentage, objetivo_peso, fecha_creacion",
+                f"UPDATE usuario SET {', '.join(updates)} WHERE id_usuario = %s",
                 (*params, id_usuario)
             )
-            usuario = cursor.fetchone()
             conn.commit()
-        else:
-            cursor.execute(
-                "SELECT id_usuario, name, surname, email, peso, altura, objetivo_porcentage, objetivo_peso, fecha_creacion "
-                "FROM usuario WHERE id_usuario = %s",
-                (id_usuario,)
-            )
-            usuario = cursor.fetchone()
 
-        return {
-            "id_usuario": usuario[0],
-            "name": usuario[1],
-            "surname": usuario[2],
-            "email": usuario[3],
-            "peso": usuario[4],
-            "altura": usuario[5],
-            "objetivo_porcentage": usuario[6],
-            "objetivo_peso": usuario[7],
-            "fecha_creacion": usuario[8].isoformat()
-        }
+            # Recuperar el usuario usando la función existente que maneja la presencia/ausencia de columnas
+            return obtener_usuario_service(id_usuario)
+        else:
+            return obtener_usuario_service(id_usuario)
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al obtener el usuario"
+            detail=f"Error al actualizar el usuario: {str(e)}"
         )
     finally:
         if conn:

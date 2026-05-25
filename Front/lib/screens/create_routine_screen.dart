@@ -68,7 +68,7 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                Text('Días por semana', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                const Text('Días por semana', style: TextStyle(color: Colors.black54, fontSize: 12)),
                 const SizedBox(height: 8),
                 Slider(
                   value: _daysPerWeek.toDouble(),
