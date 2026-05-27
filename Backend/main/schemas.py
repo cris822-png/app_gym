@@ -21,6 +21,8 @@ class CrearUsuarioRequest(UsuarioBase):
 
 
 class ActualizarUsuarioRequest(BaseModel):
+    peso: Optional[float] = Field(None, gt=0, description="Peso actual en kg")
+    altura: Optional[float] = Field(None, gt=0, description="Altura en cm")
     objetivo_porcentage: Optional[str] = Field(None, description="Porcentaje objetivo de grasa")
     objetivo_peso: Optional[str] = Field(None, description="Peso objetivo")
 
@@ -116,3 +118,18 @@ class CoachRecommendationResponse(BaseModel):
     mensaje: str
     observaciones: List[str]
     acciones: List[str]
+
+
+class CrearSesionRequest(BaseModel):
+    id_usuario: int = Field(..., gt=0, description="ID del usuario")
+    remember_me: bool = Field(default=False, description="Si es verdadero, crea sesión persistente")
+    expires_days: int = Field(default=30, description="Días para expiración de sesión")
+
+
+class SesionResponse(BaseModel):
+    token: str = Field(..., description="Token de sesión")
+    expires_at: datetime = Field(..., description="Fecha de expiración")
+
+
+class VerificarSesionRequest(BaseModel):
+    token: str = Field(..., description="Token de sesión a verificar")

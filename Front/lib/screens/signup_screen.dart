@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 
@@ -21,6 +22,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _alturaController = TextEditingController();
   final ApiService _apiService = ApiService();
   bool _submitting = false;
+  bool _rememberMe = false;
   String? _errorMessage;
 
   Future<void> _submit() async {
@@ -45,6 +47,23 @@ class _SignupScreenState extends State<SignupScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
+
+      if (_rememberMe) {
+        try {
+          final sesionData = await _apiService.crearSesion(usuario.idUsuario, true);
+          final token = sesionData['token'];
+          if (token != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt('user_id', usuario.idUsuario);
+            await prefs.setString('user_name', usuario.name);
+            await prefs.setString('session_token', token);
+            // Token válido por 30 días
+            await prefs.setInt('session_expiry', DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch);
+          }
+        } catch (e) {
+          // Si falla la creación de sesión, no es crítico - la sesión se puede crear en siguiente login
+        }
+      }
 
       widget.onLogin(usuario.idUsuario, usuario.name);
     } catch (error) {
@@ -161,6 +180,20 @@ class _SignupScreenState extends State<SignupScreen> {
                       },
                     ),
                     const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value ?? false;
+                            });
+                          },
+                        ),
+                        const Text('Recuérdame durante 30 días', style: TextStyle(color: Colors.black87)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _submitting ? null : _submit,
                       style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),

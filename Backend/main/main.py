@@ -22,6 +22,8 @@ from main.schemas import (
     CrearEjercicioRequest,
     CrearNutricionRequest,
     CrearEntrenamientoRequest,
+    CrearSesionRequest,
+    VerificarSesionRequest,
 )
 from services.usuarios import (
     crear_usuario_service,
@@ -30,6 +32,9 @@ from services.usuarios import (
     actualizar_usuario_service,
     obtener_progreso_usuario_service,
     registrar_progreso_usuario_service,
+    crear_sesion_service,
+    verificar_sesion_service,
+    eliminar_sesion_service,
 )
 from services.rutinas import crear_rutina_service, obtener_rutinas_usuario_service
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
@@ -180,6 +185,34 @@ async def obtener_entrenamientos_usuario(id_usuario: int):
 @standarize_response
 async def obtener_recomendaciones_coach(id_usuario: int):
     return generar_recomendacion_coach_service(id_usuario)
+
+
+
+
+@app.post("/api/auth/sesion")
+@standarize_response
+async def crear_sesion(request: CrearSesionRequest):
+    """Crea una sesión persistente para "Recuérdame" de 30 días"""
+    return crear_sesion_service(
+        id_usuario=request.id_usuario,
+        remember_me=request.remember_me,
+        expires_days=request.expires_days,
+    )
+
+
+@app.post("/api/auth/verificar-sesion")
+@standarize_response
+async def verificar_sesion(request: VerificarSesionRequest):
+    """Verifica si un token de sesión es válido"""
+    return verificar_sesion_service(token=request.token)
+
+
+@app.post("/api/auth/logout")
+@standarize_response
+async def logout(request: VerificarSesionRequest):
+    """Elimina una sesión cuando el usuario se desconecta"""
+    eliminar_sesion_service(token=request.token)
+    return {"status": "ok", "message": "Sesión cerrada exitosamente"}
 
 
 @app.get("/api/health")

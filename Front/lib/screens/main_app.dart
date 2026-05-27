@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/api_service.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'chat_screen.dart';
@@ -18,6 +21,59 @@ class _MainAppState extends State<MainApp> {
   int _selectedIndex = 0;
   int? _userId;
   String _userName = 'Usuario';
+  bool _checkingSession = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSavedSession();
+  }
+
+  Future<void> _checkSavedSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('session_token');
+    final sessionExpiry = prefs.getInt('session_expiry');
+    
+    if (token != null && sessionExpiry != null) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now < sessionExpiry) {
+        // Sesión localmente válida, verificar con el backend
+        try {
+          final apiService = ApiService();
+          final result = await apiService.verificarSesion(token);
+          final userId = result['id_usuario'] as int?;
+          final userName = result['name'] as String?;
+          
+          if (userId != null && userName != null) {
+            // Sesión válida en el backend
+            if (mounted) {
+              setState(() {
+                _loggedIn = true;
+                _userId = userId;
+                _userName = userName;
+                _checkingSession = false;
+              });
+            }
+            return;
+          }
+        } catch (e) {
+          // Error al verificar con el backend, la sesión será inválida localmente
+        }
+      }
+      
+      // Sesión expirada o inválida, limpiar
+      await prefs.remove('user_id');
+      await prefs.remove('user_name');
+      await prefs.remove('session_token');
+      await prefs.remove('session_expiry');
+    }
+    
+    if (mounted) {
+      setState(() {
+        _checkingSession = false;
+      });
+    }
+  }
 
   void _onLoginSuccess(int userId, String userName) {
     setState(() {
@@ -34,7 +90,24 @@ class _MainAppState extends State<MainApp> {
     });
   }
 
-  void _onLogout() {
+  void _onLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('session_token');
+    
+    if (token != null) {
+      try {
+        final apiService = ApiService();
+        await apiService.logout(token);
+      } catch (e) {
+        // Error al eliminar sesión en el servidor, continuamos con logout local
+      }
+    }
+    
+    await prefs.remove('user_id');
+    await prefs.remove('user_name');
+    await prefs.remove('session_token');
+    await prefs.remove('session_expiry');
+    
     setState(() {
       _loggedIn = false;
       _userId = null;
@@ -44,6 +117,14 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingSession) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
     if (!_loggedIn || _userId == null) {
       return LoginScreen(onLogin: _onLoginSuccess);
     }

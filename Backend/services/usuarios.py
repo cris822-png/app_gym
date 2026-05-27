@@ -518,3 +518,170 @@ def registrar_progreso_usuario_service(id_usuario: int, peso: float) -> dict:
     finally:
         if conn:
             release_connection(conn)
+
+
+def crear_sesion_service(id_usuario: int, remember_me: bool, expires_days: int = 30) -> dict:
+    """Crea una sesión persistente para un usuario si remember_me es True"""
+    if not remember_me:
+        return {"token": None}
+    
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+        
+        # Verificar que la tabla de sesiones existe, si no crearla
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id_sesion SERIAL PRIMARY KEY,
+                id_usuario INTEGER NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+                token VARCHAR(256) NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                is_active BOOLEAN DEFAULT true
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+            CREATE INDEX IF NOT EXISTS idx_sessions_usuario ON sessions(id_usuario);
+        """)
+        
+        # Generar token único
+        token = secrets.token_urlsafe(32)
+        
+        # Insertar sesión
+        from datetime import timedelta
+        expires_at = datetime.now() + timedelta(days=expires_days)
+        
+        cursor.execute("""
+            INSERT INTO sessions (id_usuario, token, expires_at, is_active)
+            VALUES (%s, %s, %s, true)
+        """, (id_usuario, token, expires_at))
+        
+        conn.commit()
+        
+        return {
+            "token": token,
+            "expires_at": expires_at.isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear la sesión: {str(e)}"
+        )
+    finally:
+        if conn:
+            release_connection(conn)
+
+
+def verificar_sesion_service(token: str) -> dict:
+    """Verifica si un token de sesión es válido y retorna datos del usuario"""
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+        
+        # Buscar sesión válida
+        cursor.execute("""
+            SELECT s.id_usuario, s.expires_at, u.name, u.surname, u.email
+            FROM sessions s
+            JOIN usuario u ON s.id_usuario = u.id_usuario
+            WHERE s.token = %s AND s.is_active = true AND s.expires_at > NOW()
+        """, (token,))
+        
+        resultado = cursor.fetchone()
+        
+        if resultado is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Sesión inválida o expirada"
+            )
+        
+        return {
+            "id_usuario": resultado[0],
+            "expires_at": resultado[1].isoformat(),
+            "name": resultado[2],
+            "surname": resultado[3],
+            "email": resultado[4]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al verificar la sesión: {str(e)}"
+        )
+    finally:
+        if conn:
+            release_connection(conn)
+
+
+def eliminar_sesion_service(token: str) -> bool:
+    """Elimina una sesión cuando el usuario se desconecta"""
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+        
+        # Marcar sesión como inactiva
+        cursor.execute("""
+            UPDATE sessions SET is_active = false
+            WHERE token = %s
+        """, (token,))
+        
+        conn.commit()
+        return True
+
+    except HTTPException:
+        raise
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al eliminar la sesión"
+        )
+    finally:
+        if conn:
+            release_connection(conn)

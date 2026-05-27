@@ -147,6 +147,34 @@ class ApiService {
       body: entrenamiento.toPostJson(),
     );
   }
+
+  Future<Map<String, dynamic>> crearSesion(int idUsuario, bool rememberMe, {int expiresDays = 30}) async {
+    return _request(
+      'POST',
+      '/auth/sesion',
+      body: {
+        'id_usuario': idUsuario,
+        'remember_me': rememberMe,
+        'expires_days': expiresDays,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> verificarSesion(String token) async {
+    return _request(
+      'POST',
+      '/auth/verificar-sesion',
+      body: {'token': token},
+    );
+  }
+
+  Future<void> logout(String token) async {
+    await _request(
+      'POST',
+      '/auth/logout',
+      body: {'token': token},
+    );
+  }
 }
 
 class ApiException implements Exception {
