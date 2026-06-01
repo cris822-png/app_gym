@@ -36,7 +36,7 @@ from services.usuarios import (
     verificar_sesion_service,
     eliminar_sesion_service,
 )
-from services.rutinas import crear_rutina_service, obtener_rutinas_usuario_service
+from services.rutinas import crear_rutina_completa_service, obtener_rutinas_usuario_service
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
 from services.nutricion import crear_nutricion_service, obtener_nutricion_usuario_service
 from services.entrenamiento import registrar_entrenamiento_service, obtener_entrenamientos_usuario_service
@@ -117,10 +117,11 @@ async def actualizar_usuario(id_usuario: int, usuario: ActualizarUsuarioRequest)
 @app.post("/api/rutinas", status_code=status.HTTP_201_CREATED)
 @standarize_response
 async def crear_rutina(rutina: CrearRutinaRequest):
-    return crear_rutina_service(
+    return crear_rutina_completa_service(
         id_usuario=rutina.id_usuario,
         name_rutina=rutina.name_rutina,
         fecha=rutina.fecha,
+        ejercicios=[e.model_dump() for e in rutina.ejercicios]
     )
 
 

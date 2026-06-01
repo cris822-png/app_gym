@@ -52,16 +52,20 @@ class _SignupScreenState extends State<SignupScreen> {
         try {
           final sesionData = await _apiService.crearSesion(usuario.idUsuario, true);
           final token = sesionData['token'];
+          final expiresAt = sesionData['expires_at'] as String?;
+          final expiryMillis = expiresAt != null ? DateTime.tryParse(expiresAt)?.millisecondsSinceEpoch : null;
+
           if (token != null) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setInt('user_id', usuario.idUsuario);
             await prefs.setString('user_name', usuario.name);
             await prefs.setString('session_token', token);
-            // Token válido por 30 días
-            await prefs.setInt('session_expiry', DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch);
+            await prefs.setInt('session_expiry', expiryMillis ?? DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch);
           }
         } catch (e) {
-          // Si falla la creación de sesión, no es crítico - la sesión se puede crear en siguiente login
+          setState(() {
+            _errorMessage = 'No se pudo activar "Recuérdame". La sesión persistente no fue guardada.';
+          });
         }
       }
 

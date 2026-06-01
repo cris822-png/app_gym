@@ -160,6 +160,10 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> crearRutina(Map<String, dynamic> payload) async {
+    return _request('POST', '/rutinas', body: payload);
+  }
+
   Future<Map<String, dynamic>> verificarSesion(String token) async {
     return _request(
       'POST',

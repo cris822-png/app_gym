@@ -542,20 +542,12 @@ def crear_sesion_service(id_usuario: int, remember_me: bool, expires_days: int =
 
         cursor = conn.cursor()
         
-        # Verificar que la tabla de sesiones existe, si no crearla
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sessions (
-                id_sesion SERIAL PRIMARY KEY,
-                id_usuario INTEGER NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
-                token VARCHAR(256) NOT NULL UNIQUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP NOT NULL,
-                is_active BOOLEAN DEFAULT true
-            );
-            
-            CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
-            CREATE INDEX IF NOT EXISTS idx_sessions_usuario ON sessions(id_usuario);
-        """)
+        # La tabla `sessions` debe ser creada mediante migraciones.
+        # Evitar crear tablas en tiempo de ejecución porque el usuario
+        # de la BD (por ejemplo 'deff') puede no tener permisos CREATE
+        # en el esquema `public` y eso causa errores (ver logs).
+        # Si la tabla no existe, aplique la migración: Backend/database/migrations/add_peso_and_sessions.sql
+        # No intentamos crearla aquí para no requerir privilegios extra.
         
         # Generar token único
         token = secrets.token_urlsafe(32)

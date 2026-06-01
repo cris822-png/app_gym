@@ -22,13 +22,16 @@ class Usuario {
   });
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
+    final pesoValue = json['peso'];
+    final alturaValue = json['altura'];
+
     return Usuario(
       idUsuario: json['id_usuario'] as int,
       name: json['name'] as String,
       surname: json['surname'] as String,
       email: json['email'] as String,
-      peso: (json['peso'] as num).toDouble(),
-      altura: (json['altura'] as num).toDouble(),
+      peso: pesoValue != null ? (pesoValue as num).toDouble() : 0.0,
+      altura: alturaValue != null ? (alturaValue as num).toDouble() : 0.0,
       objetivoPorcentage: json['objetivo_porcentage'] as String?,
       objetivoPeso: json['objetivo_peso'] as String?,
       fechaCreacion: json['fecha_creacion'] as String,

@@ -32,42 +32,45 @@ class _MainAppState extends State<MainApp> {
   Future<void> _checkSavedSession() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('session_token');
-    final sessionExpiry = prefs.getInt('session_expiry');
-    
-    if (token != null && sessionExpiry != null) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      if (now < sessionExpiry) {
-        // Sesión localmente válida, verificar con el backend
-        try {
-          final apiService = ApiService();
-          final result = await apiService.verificarSesion(token);
-          final userId = result['id_usuario'] as int?;
-          final userName = result['name'] as String?;
-          
-          if (userId != null && userName != null) {
-            // Sesión válida en el backend
-            if (mounted) {
-              setState(() {
-                _loggedIn = true;
-                _userId = userId;
-                _userName = userName;
-                _checkingSession = false;
-              });
+
+    if (token != null) {
+      try {
+        final apiService = ApiService();
+        final result = await apiService.verificarSesion(token);
+        final userId = result['id_usuario'] as int?;
+        final userName = result['name'] as String?;
+        final expiresAt = result['expires_at'] as String?;
+
+        if (userId != null && userName != null) {
+          if (expiresAt != null) {
+            final expiryMillis = DateTime.tryParse(expiresAt)?.millisecondsSinceEpoch;
+            if (expiryMillis != null) {
+              await prefs.setInt('session_expiry', expiryMillis);
             }
-            return;
           }
-        } catch (e) {
-          // Error al verificar con el backend, la sesión será inválida localmente
+          await prefs.setInt('user_id', userId);
+          await prefs.setString('user_name', userName);
+
+          if (mounted) {
+            setState(() {
+              _loggedIn = true;
+              _userId = userId;
+              _userName = userName;
+              _checkingSession = false;
+            });
+          }
+          return;
         }
+      } catch (e) {
+        // Sesión inválida o error al verificar, se limpia el almacenamiento local
       }
-      
-      // Sesión expirada o inválida, limpiar
+
       await prefs.remove('user_id');
       await prefs.remove('user_name');
       await prefs.remove('session_token');
       await prefs.remove('session_expiry');
     }
-    
+
     if (mounted) {
       setState(() {
         _checkingSession = false;

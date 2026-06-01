@@ -45,6 +45,7 @@ class CrearRutinaRequest(BaseModel):
     id_usuario: int = Field(..., gt=0, description="ID del usuario propietario")
     name_rutina: str = Field(..., min_length=1, description="Nombre de la rutina")
     fecha: date = Field(..., description="Fecha de la rutina (YYYY-MM-DD)")
+    ejercicios: List["RutinaEjercicioPayload"] = Field(..., min_length=1, description="Lista de ejercicios con series")
 
 
 class RutinaResponse(BaseModel):
@@ -133,3 +134,23 @@ class SesionResponse(BaseModel):
 
 class VerificarSesionRequest(BaseModel):
     token: str = Field(..., description="Token de sesión a verificar")
+
+
+class SeriePayload(BaseModel):
+    reps: int = Field(..., gt=0, description="Repeticiones")
+    peso: Optional[float] = Field(None, gt=0, description="Peso estimado en kg")
+    tiempo_descanso: Optional[str] = Field(None, description="Tiempo de descanso (ej. '60s' o '00:01:00')")
+
+
+class RutinaEjercicioPayload(BaseModel):
+    id_ejercicio: int = Field(..., gt=0, description="ID del ejercicio")
+    series: List[SeriePayload] = Field(..., min_length=1, description="Lista de series para este ejercicio")
+    orden: Optional[int] = Field(None, description="Orden/posición del ejercicio en la rutina")
+
+
+class CrearRutinaResponse(BaseModel):
+    id_rutina: int
+    id_usuario: int
+    name_rutina: str
+    fecha: date
+    ejercicios: List[dict]
