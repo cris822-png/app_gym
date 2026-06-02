@@ -24,6 +24,10 @@ from main.schemas import (
     CrearEntrenamientoRequest,
     CrearSesionRequest,
     VerificarSesionRequest,
+    # Nuevos schemas para registro en tiempo real
+    IniciarEntrenamientoRequest,
+    RegistrarSerieRequest,
+    ChatIaRequest,
 )
 from services.usuarios import (
     crear_usuario_service,
@@ -39,8 +43,14 @@ from services.usuarios import (
 from services.rutinas import crear_rutina_completa_service, obtener_rutinas_usuario_service
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
 from services.nutricion import crear_nutricion_service, obtener_nutricion_usuario_service
-from services.entrenamiento import registrar_entrenamiento_service, obtener_entrenamientos_usuario_service
-from services.coach import generar_recomendacion_coach_service
+from services.entrenamiento import (
+    registrar_entrenamiento_service,
+    obtener_entrenamientos_usuario_service,
+    iniciar_entrenamiento_service,
+    obtener_ultimo_registro_ejercicio_service,
+    registrar_serie_service,
+)
+from services.coach import generar_recomendacion_coach_service, chat_ia_service
 from utils.responses import standarize_response, custom_validation_exception_handler
 
 # Crear aplicación FastAPI
@@ -214,6 +224,47 @@ async def logout(request: VerificarSesionRequest):
     """Elimina una sesión cuando el usuario se desconecta"""
     eliminar_sesion_service(token=request.token)
     return {"status": "ok", "message": "Sesión cerrada exitosamente"}
+
+
+# ── Nuevas rutas: registro en tiempo real ───────────────────────────────────
+
+@app.post("/api/usuarios/{id_usuario}/entrenamientos/iniciar", status_code=status.HTTP_201_CREATED)
+@standarize_response
+async def iniciar_entrenamiento(id_usuario: int, body: IniciarEntrenamientoRequest):
+    """Crea un registro en `entrenamiento` y devuelve id_entrenamiento
+    para usarlo en llamadas sucesivas de registro de series."""
+    return iniciar_entrenamiento_service(
+        id_usuario=id_usuario,
+        id_ejercicio=body.id_ejercicio,
+        id_rutina=body.id_rutina,
+    )
+
+
+@app.get("/api/usuarios/{id_usuario}/ejercicios/{id_ejercicio}/ultimo-registro")
+@standarize_response
+async def obtener_ultimo_registro(id_usuario: int, id_ejercicio: int):
+    """Devuelve las series de la última sesión de ese ejercicio.
+    Se usa para mostrar el placeholder gris (ej. '80kg × 10') en cada fila."""
+    return obtener_ultimo_registro_ejercicio_service(id_usuario, id_ejercicio)
+
+
+@app.post("/api/entrenamientos/{id_entrenamiento}/series", status_code=status.HTTP_201_CREATED)
+@standarize_response
+async def registrar_serie(id_entrenamiento: int, serie: RegistrarSerieRequest):
+    """Registra una serie individual al presionar el botón Check ✓ en la app."""
+    return registrar_serie_service(id_entrenamiento, serie.peso, serie.reps)
+
+
+@app.post("/api/usuarios/{id_usuario}/chat-ia")
+@standarize_response
+async def chat_ia(id_usuario: int, body: ChatIaRequest):
+    """Chat conversacional con el coach IA.
+    Acepta el mensaje del usuario + contexto del entreno activo en tiempo real."""
+    return chat_ia_service(
+        id_usuario=id_usuario,
+        mensaje=body.mensaje,
+        contexto_entreno=body.contexto_entreno,
+    )
 
 
 @app.get("/api/health")

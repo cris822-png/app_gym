@@ -160,3 +160,220 @@ def obtener_entrenamientos_usuario_service(id_usuario: int) -> list[dict]:
     finally:
         if conn:
             release_connection(conn)
+
+
+# ── Nuevas funciones para registro en tiempo real ───────────────────────────
+
+def iniciar_entrenamiento_service(id_usuario: int, id_ejercicio: int, id_rutina: int | None) -> dict:
+    """
+    Crea UNA fila en `entrenamiento` para un ejercicio concreto.
+    La app llama esto al empezar a registrar un ejercicio.
+    Devuelve id_entrenamiento para usarlo en registrar_serie_service().
+
+    Tablas:  entrenamiento (INSERT)
+    FK:      id_usuario → usuario, id_ejercicio → ejercicios, id_rutina → rutina (nullable)
+    """
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+
+        # Validar usuario
+        cursor.execute("SELECT id_usuario FROM usuario WHERE id_usuario = %s", (id_usuario,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+        # Validar ejercicio
+        cursor.execute("SELECT id_ejercicio FROM ejercicios WHERE id_ejercicio = %s", (id_ejercicio,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+
+        # Validar rutina si se proporcionó
+        if id_rutina is not None:
+            cursor.execute(
+                "SELECT id_rutina FROM rutina WHERE id_rutina = %s AND id_usuario = %s",
+                (id_rutina, id_usuario)
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
+
+        # Insertar fila en entrenamiento
+        cursor.execute(
+            "INSERT INTO entrenamiento (id_usuario, id_ejercicio, id_rutina) VALUES (%s, %s, %s) RETURNING id_entrenamiento, fecha",
+            (id_usuario, id_ejercicio, id_rutina)
+        )
+        row = cursor.fetchone()
+        conn.commit()
+
+        return {
+            "id_entrenamiento": row[0],
+            "id_usuario": id_usuario,
+            "id_ejercicio": id_ejercicio,
+            "id_rutina": id_rutina,
+            "fecha": row[1].isoformat() if hasattr(row[1], "isoformat") else str(row[1])
+        }
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al iniciar el entrenamiento"
+        )
+    finally:
+        if conn:
+            release_connection(conn)
+
+
+def obtener_ultimo_registro_ejercicio_service(id_usuario: int, id_ejercicio: int) -> dict:
+    """
+    Obtiene las series de la ÚLTIMA sesión del ejercicio para un usuario.
+    Se usa para mostrar el placeholder gris (peso/reps anteriores) en la app.
+
+    Query:
+      1. Busca el entrenamiento más reciente por fecha DESC para ese usuario+ejercicio
+      2. Carga todas las series de ese entrenamiento ordenadas por id_serie ASC
+
+    Tablas:  entrenamiento (SELECT) + series (SELECT)
+    """
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+
+        # 1. Entrenamiento más reciente de ese ejercicio
+        cursor.execute("""
+            SELECT e.id_entrenamiento, e.fecha
+            FROM entrenamiento e
+            WHERE e.id_usuario = %s AND e.id_ejercicio = %s
+            ORDER BY e.fecha DESC
+            LIMIT 1
+        """, (id_usuario, id_ejercicio))
+
+        row = cursor.fetchone()
+        if not row:
+            return {"series_anteriores": [], "fecha_sesion": None}
+
+        id_entrenamiento_previo = row[0]
+        fecha_sesion = row[1].isoformat() if hasattr(row[1], "isoformat") else str(row[1])
+
+        # 2. Series de esa sesión en orden
+        cursor.execute("""
+            SELECT peso, reps
+            FROM series
+            WHERE id_entrenamiento = %s
+            ORDER BY id_serie ASC
+        """, (id_entrenamiento_previo,))
+
+        series = cursor.fetchall()
+        return {
+            "series_anteriores": [
+                {"numero": i + 1, "peso": float(s[0]), "reps": s[1]}
+                for i, s in enumerate(series)
+            ],
+            "fecha_sesion": fecha_sesion
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al obtener el último registro del ejercicio"
+        )
+    finally:
+        if conn:
+            release_connection(conn)
+
+
+def registrar_serie_service(id_entrenamiento: int, peso: float, reps: int) -> dict:
+    """
+    Inserta UNA sola serie en la tabla `series` inmediatamente al presionar Check ✓.
+    Registro en tiempo real — no espera a que termine el entreno.
+
+    Tablas:  series (INSERT)
+    FK:      id_entrenamiento → entrenamiento
+    Campos:  peso (numeric 6,2), reps (integer), tiempo_descanso (null por defecto)
+    """
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+
+        # Validar que el entrenamiento existe
+        cursor.execute(
+            "SELECT id_entrenamiento FROM entrenamiento WHERE id_entrenamiento = %s",
+            (id_entrenamiento,)
+        )
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Entrenamiento {id_entrenamiento} no encontrado"
+            )
+
+        # Insertar la serie
+        cursor.execute(
+            "INSERT INTO series (id_entrenamiento, peso, reps) VALUES (%s, %s, %s) RETURNING id_serie",
+            (id_entrenamiento, peso, reps)
+        )
+        id_serie = cursor.fetchone()[0]
+        conn.commit()
+
+        return {
+            "id_serie": id_serie,
+            "id_entrenamiento": id_entrenamiento,
+            "peso": peso,
+            "reps": reps
+        }
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al registrar la serie"
+        )
+    finally:
+        if conn:
+            release_connection(conn)

@@ -8,8 +8,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^0.13.6
+  http: ^1.2.0
   shared_preferences: ^2.2.0
+  # Nuevas dependencias para el rediseño UI
+  provider: ^6.1.2           # State management del entreno activo
+  flutter_animate: ^4.5.0   # Micro-animaciones declarativas
+  google_fonts: ^6.2.1      # Tipografía Inter
 
 dev_dependencies:
   flutter_test:

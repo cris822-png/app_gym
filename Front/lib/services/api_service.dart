@@ -179,6 +179,63 @@ class ApiService {
       body: {'token': token},
     );
   }
+
+  // ── Nuevos métodos: registro en tiempo real ────────────────────────────
+
+  /// Obtiene las series de la última sesión del ejercicio.
+  /// Devuelve List de {numero, peso, reps} para el placeholder gris.
+  Future<List<Map<String, dynamic>>> getUltimoRegistro(
+      int idUsuario, int idEjercicio) async {
+    final data = await _request(
+        'GET', '/usuarios/$idUsuario/ejercicios/$idEjercicio/ultimo-registro');
+    final list = data['series_anteriores'] as List<dynamic>? ?? [];
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  /// Crea un registro en `entrenamiento` para un ejercicio y devuelve su id.
+  /// Se llama antes de registrar la primera serie.
+  Future<int> iniciarEntrenamiento({
+    required int userId,
+    required int idEjercicio,
+    int? idRutina,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/usuarios/$userId/entrenamientos/iniciar',
+      body: {
+        'id_ejercicio': idEjercicio,
+        if (idRutina != null) 'id_rutina': idRutina,
+      },
+    );
+    return data['id_entrenamiento'] as int;
+  }
+
+  /// Registra una serie individual al presionar Check ✓.
+  Future<void> registrarSerie({
+    required int idEntrenamiento,
+    required double peso,
+    required int reps,
+  }) async {
+    await _request(
+      'POST',
+      '/entrenamientos/$idEntrenamiento/series',
+      body: {'peso': peso, 'reps': reps},
+    );
+  }
+
+  /// Envía un mensaje al coach IA con el contexto del entreno activo.
+  Future<String> chatIa({
+    required int userId,
+    required String mensaje,
+    required Map<String, dynamic> contextoEntreno,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/usuarios/$userId/chat-ia',
+      body: {'mensaje': mensaje, 'contexto_entreno': contextoEntreno},
+    );
+    return data['respuesta'] as String? ?? 'Sin respuesta del coach.';
+  }
 }
 
 class ApiException implements Exception {

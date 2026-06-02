@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/theme/app_theme.dart';
+import '../providers/workout_provider.dart';
 import '../services/api_service.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
@@ -139,8 +142,16 @@ class _MainAppState extends State<MainApp> {
         onStartWorkout: () => _onItemTapped(1),
         onOpenChat: () => _onItemTapped(2),
       ),
-      const WorkoutScreen(),
-      ChatScreen(userId: _userId!),
+      // WorkoutScreen necesita WorkoutProvider inyectado con el userId real
+      ChangeNotifierProvider(
+        create: (_) => WorkoutProvider(userId: _userId!),
+        child: WorkoutScreen(userId: _userId!),
+      ),
+      // ChatScreen también necesita acceso al WorkoutProvider para el contexto
+      ChangeNotifierProvider(
+        create: (_) => WorkoutProvider(userId: _userId!),
+        child: ChatScreen(userId: _userId!),
+      ),
       ProgressScreen(userId: _userId!),
       ProfileScreen(userId: _userId!, onLogout: _onLogout),
     ];
@@ -151,19 +162,40 @@ class _MainAppState extends State<MainApp> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        backgroundColor: AppColors.bg2,
+        selectedItemColor: AppColors.accentBlue,
+        unselectedItemColor: AppColors.textMuted,
+        elevation: 0,
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Entreno'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat IA'),
-          BottomNavigationBarItem(icon: Icon(Icons.show_chart), label: 'Progreso'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Perfil'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Inicio'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center_outlined),
+            activeIcon: Icon(Icons.fitness_center),
+            label: 'Entreno'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.auto_awesome_outlined),
+            activeIcon: Icon(Icons.auto_awesome),
+            label: 'Coach IA'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.show_chart_outlined),
+            activeIcon: Icon(Icons.show_chart),
+            label: 'Progreso'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Perfil'),
         ],
       ),
+      // FAB solo en Dashboard (WorkoutScreen tiene su propio FAB de IA)
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton.extended(
               onPressed: () => _onItemTapped(1),
               label: const Text('Iniciar Entreno'),
               icon: const Icon(Icons.play_arrow),
+              backgroundColor: AppColors.accentBlue,
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,

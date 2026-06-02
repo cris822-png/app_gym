@@ -341,3 +341,164 @@ def generar_recomendacion_coach_service(id_usuario: int) -> dict:
         response["advertencia_ia"] = str(exc)
 
     return response
+
+
+# ── Chat IA conversacional con contexto del entreno activo ───────────────────
+
+def _call_groq_chat(messages: list[dict]) -> str:
+    """
+    Llama a Groq usando el endpoint /openai/v1/chat/completions (formato OpenAI).
+    A diferencia de _call_groq, este soporta historial de mensajes y system prompt.
+    El modelo correcto para Groq es 'llama-3.3-70b-versatile' o similar.
+    """
+    api_key = os.getenv("GROQ_API_KEY")
+    model   = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
+
+    if not api_key:
+        raise RuntimeError("Falta GROQ_API_KEY en las variables de entorno")
+
+    payload = json.dumps({
+        "model": model,
+        "messages": messages,
+        "max_tokens": 400,
+        "temperature": 0.7
+    }).encode("utf-8")
+
+    request = Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+    )
+    try:
+        with urlopen(request, timeout=25) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["choices"][0]["message"]["content"]
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Error Groq {exc.code}: {body}")
+    except URLError as exc:
+        raise RuntimeError(f"Error de conexión a Groq: {exc.reason}")
+
+
+def chat_ia_service(id_usuario: int, mensaje: str, contexto_entreno: dict) -> dict:
+    """
+    Chat conversacional con el coach IA.
+
+    Flujo:
+    1. Obtiene perfil del usuario (tabla `usuario`)
+    2. Recupera historial reciente de `chat_ia` (últimos 10 mensajes)
+    3. Construye system_prompt con datos del usuario + contexto del entreno activo
+    4. Llama al LLM con historial + nuevo mensaje
+    5. Persiste user message y respuesta del asistente en `chat_ia`
+
+    Tablas:  usuario (SELECT) + chat_ia (SELECT + INSERT ×2)
+    """
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+
+        # 1. Perfil del usuario
+        usuario = _obtener_usuario(id_usuario)
+
+        # 2. Historial de chat (últimos 10, cronológico)
+        cursor.execute("""
+            SELECT rol, contenido
+            FROM chat_ia
+            WHERE id_usuario = %s
+            ORDER BY created_at DESC
+            LIMIT 10
+        """, (id_usuario,))
+        historial_raw = cursor.fetchall()
+        # Invertir para cronología ascendente
+        historial = [{"role": r[0], "content": r[1]} for r in reversed(historial_raw)]
+
+        # 3. Construir contexto del entreno en texto
+        ejercicios_texto = ""
+        ejercicios_activos = contexto_entreno.get("ejercicios", [])
+        if ejercicios_activos:
+            lineas = []
+            for ej in ejercicios_activos:
+                series_str = ", ".join(
+                    f"{s['peso']}kg×{s['reps']}reps"
+                    for s in ej.get("series_completadas", [])
+                ) or "sin series aún"
+                lineas.append(f"  • {ej['nombre']}: {series_str}")
+            ejercicios_texto = "\n".join(lineas)
+        else:
+            ejercicios_texto = "  • Sin ejercicios registrados todavía."
+
+        duracion = contexto_entreno.get("duracion_minutos", 0)
+
+        # System prompt con contexto completo
+        objetivo = usuario.get("objetivo_porcentage") or "sin definir"
+        system_prompt = (
+            f"Eres un coach de fitness experto, conciso y motivador. Respondes en español.\n"
+            f"No alagues innecesariamente. Da consejos prácticos y directos.\n\n"
+            f"PERFIL DEL USUARIO:\n"
+            f"  Nombre: {usuario['name']} {usuario['surname']}\n"
+            f"  Peso: {usuario['peso']} kg | Altura: {usuario['altura']} cm\n"
+            f"  Objetivo: {objetivo}\n\n"
+            f"ENTRENO ACTIVO AHORA MISMO (duración: {duracion} min):\n"
+            f"{ejercicios_texto}\n\n"
+            f"Reglas: Responde en máximo 3-4 frases. Usa los datos del entreno activo si son relevantes."
+        )
+
+        # 4. Construir lista de messages para el LLM
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(historial)
+        messages.append({"role": "user", "content": mensaje})
+
+        # 5. Guardar mensaje del usuario en DB
+        cursor.execute(
+            "INSERT INTO chat_ia (id_usuario, rol, contenido) VALUES (%s, 'user', %s)",
+            (id_usuario, mensaje)
+        )
+
+        # 6. Llamar al LLM
+        try:
+            respuesta = _call_groq_chat(messages)
+        except Exception as exc:
+            # Fallback si Groq no está disponible
+            respuesta = (
+                "Lo siento, el coach IA no está disponible en este momento. "
+                "Revisa tu GROQ_API_KEY y vuelve a intentarlo."
+            )
+
+        # 7. Guardar respuesta del asistente en DB
+        cursor.execute(
+            "INSERT INTO chat_ia (id_usuario, rol, contenido) VALUES (%s, 'assistant', %s)",
+            (id_usuario, respuesta)
+        )
+        conn.commit()
+
+        return {"respuesta": respuesta}
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception as exc:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error en el chat IA: {str(exc)}"
+        )
+    finally:
+        if conn:
+            release_connection(conn)

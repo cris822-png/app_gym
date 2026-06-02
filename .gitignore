@@ -12,3 +12,4 @@ __pycache__
 *linux/
 *test/
 schema.sql
+.claude

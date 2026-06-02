@@ -1,44 +1,618 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../core/theme/app_theme.dart';
+import '../providers/workout_provider.dart';
+import '../services/api_service.dart';
+import '../widgets/ejercicio_card.dart';
+import '../widgets/ia_chat_overlay.dart';
 
-class WorkoutScreen extends StatelessWidget {
-  const WorkoutScreen({super.key});
+/// Pantalla de entrenamiento activo — registro en tiempo real.
+///
+/// Flujo:
+/// 1. Carga las rutinas del usuario y permite seleccionar una.
+/// 2. Para cada ejercicio de la rutina, carga el último registro (placeholders).
+/// 3. El usuario completa series → se guardan en DB al presionar ✓.
+/// 4. FAB morado abre el chat IA sin salir del entreno.
+class WorkoutScreen extends StatefulWidget {
+  final int userId;
+
+  const WorkoutScreen({super.key, required this.userId});
+
+  @override
+  State<WorkoutScreen> createState() => _WorkoutScreenState();
+}
+
+class _WorkoutScreenState extends State<WorkoutScreen> {
+  final ApiService _api = ApiService();
+  bool _loadingRutinas = true;
+  List<Map<String, dynamic>> _rutinas = [];
+  List<Map<String, dynamic>> _ejerciciosDisponibles = [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+
+  Future<void> _cargarDatos() async {
+    setState(() {
+      _loadingRutinas = true;
+      _error = null;
+    });
+    try {
+      final rutinas = await _api.getRutinas(widget.userId);
+      final ejercicios = await _api.getEjercicios();
+      setState(() {
+        _rutinas = rutinas.map((r) => {
+          'id_rutina': r.idRutina,
+          'name_rutina': r.nameRutina,
+        }).toList();
+        _ejerciciosDisponibles = ejercicios.map((e) => {
+          'id_ejercicio': e.idEjercicio,
+          'name': e.name,
+          'musculos_principales': e.musculosPrincipales,
+          'material': e.material,
+        }).toList();
+      });
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _loadingRutinas = false);
+    }
+  }
+
+  void _openIaChat(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        minChildSize: 0.4,
+        maxChildSize: 0.93,
+        builder: (ctx, scrollCtrl) => IaChatOverlay(
+          userId: widget.userId,
+          scrollController: scrollCtrl,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Entreno en curso'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Card(
-              child: ListTile(
-                title: const Text('Fuerza - Piernas'),
-                subtitle: const Text('Sentadillas, Peso muerto, Lunges'),
-                trailing: ElevatedButton(
-                  onPressed: () {},
-                  child: const Text('Comenzar'),
+    return Consumer<WorkoutProvider>(
+      builder: (context, provider, _) {
+        return Scaffold(
+          backgroundColor: AppColors.bg1,
+          // ── AppBar con timer ─────────────────────────────────────────────
+          appBar: AppBar(
+            backgroundColor: AppColors.bg1,
+            surfaceTintColor: Colors.transparent,
+            title: provider.activo
+                ? Row(
+                    children: [
+                      const Icon(Icons.circle,
+                          size: 8, color: AppColors.accentGreen),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Entreno activo',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.bg3,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          provider.duracionFormateada,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accentGreen,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Text('Entreno',
+                    style: Theme.of(context).textTheme.titleLarge),
+            actions: [
+              if (provider.activo)
+                TextButton(
+                  onPressed: () {
+                    provider.detenerEntreno();
+                    provider.resetEntreno();
+                  },
+                  child: const Text('Finalizar',
+                      style: TextStyle(
+                          color: AppColors.accentOrange,
+                          fontWeight: FontWeight.w600)),
                 ),
+            ],
+          ),
+
+          body: _loadingRutinas
+              ? const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.accentBlue))
+              : _error != null
+                  ? _ErrorView(
+                      error: _error!, onRetry: _cargarDatos)
+                  : provider.activo
+                      ? _EntrenoActivoView(
+                          provider: provider,
+                          userId: widget.userId,
+                          ejerciciosDisponibles: _ejerciciosDisponibles,
+                        )
+                      : _SelectorRutinaView(
+                          rutinas: _rutinas,
+                          ejercicios: _ejerciciosDisponibles,
+                          onRutinaSeleccionada: (ejerciciosDeLaRutina) async {
+                            provider.iniciarEntreno();
+                            await provider.cargarEjerciciosDeRutina(
+                                ejerciciosDeLaRutina);
+                          },
+                          onEntrenoLibre: () {
+                            provider.iniciarEntreno();
+                          },
+                        ),
+
+          // ── FAB: coach IA (solo durante entreno) ────────────────────────
+          floatingActionButton: provider.activo
+              ? FloatingActionButton(
+                  onPressed: () => _openIaChat(context),
+                  backgroundColor: AppColors.accentPurple.withValues(alpha: 0.9),
+                  elevation: 6,
+                  tooltip: 'Coach IA',
+                  child: const Icon(Icons.auto_awesome,
+                      color: Colors.white, size: 22),
+                )
+              : null,
+        );
+      },
+    );
+  }
+}
+
+// ── Vista: Selector de Rutina / Entreno libre ───────────────────────────────
+
+class _SelectorRutinaView extends StatelessWidget {
+  final List<Map<String, dynamic>> rutinas;
+  final List<Map<String, dynamic>> ejercicios;
+  final Function(List<Map<String, dynamic>>) onRutinaSeleccionada;
+  final VoidCallback onEntrenoLibre;
+
+  const _SelectorRutinaView({
+    required this.rutinas,
+    required this.ejercicios,
+    required this.onRutinaSeleccionada,
+    required this.onEntrenoLibre,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('¿Qué entrenas hoy?',
+              style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 6),
+          Text('Selecciona una rutina o empieza libremente.',
+              style: Theme.of(context).textTheme.bodyMedium),
+
+          const SizedBox(height: 24),
+
+          // Tarjeta entreno libre
+          _QuickStartCard(
+            icon: Icons.bolt,
+            color: AppColors.accentOrange,
+            titulo: 'Entreno libre',
+            subtitulo: 'Añade ejercicios sobre la marcha',
+            onTap: onEntrenoLibre,
+          ),
+
+          if (rutinas.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text('Mis rutinas',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            ...rutinas.map((r) => _RutinaItem(
+                  rutina: r,
+                  // En este punto se pasarían los ejercicios de la rutina
+                  // desde la API. Por simplicidad pasamos la lista completa;
+                  // en producción haría GET /rutinas/{id}/ejercicios
+                  onTap: () => onRutinaSeleccionada(ejercicios),
+                )),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickStartCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String titulo;
+  final String subtitulo;
+  final VoidCallback onTap;
+
+  const _QuickStartCard({
+    required this.icon,
+    required this.color,
+    required this.titulo,
+    required this.subtitulo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.bg2,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(titulo,
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(subtitulo,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView(
-                children: List.generate(
-                  5,
-                  (index) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      title: Text('Ejercicio ${index + 1}'),
-                      subtitle: const Text('3 series x 8-10 reps'),
-                      trailing: IconButton(onPressed: () {}, icon: const Icon(Icons.check_circle_outline)),
-                    ),
-                  ),
-                ),
+            Icon(Icons.arrow_forward_ios,
+                size: 16, color: color.withValues(alpha: 0.7)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RutinaItem extends StatelessWidget {
+  final Map<String, dynamic> rutina;
+  final VoidCallback onTap;
+
+  const _RutinaItem({required this.rutina, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.bg2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.bg3),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.accentBlue.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
               ),
-            )
+              child: const Icon(Icons.fitness_center,
+                  color: AppColors.accentBlue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                rutina['name_rutina'] as String? ?? 'Rutina',
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary),
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                color: AppColors.textMuted, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Vista: Entreno activo ────────────────────────────────────────────────────
+
+class _EntrenoActivoView extends StatelessWidget {
+  final WorkoutProvider provider;
+  final int userId;
+  final List<Map<String, dynamic>> ejerciciosDisponibles;
+
+  const _EntrenoActivoView({
+    required this.provider,
+    required this.userId,
+    required this.ejerciciosDisponibles,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.loading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppColors.accentBlue),
+            SizedBox(height: 16),
+            Text('Cargando ejercicios...',
+                style: TextStyle(color: AppColors.textMuted)),
+          ],
+        ),
+      );
+    }
+
+    if (provider.ejercicios.isEmpty) {
+      return _AgregarPrimerEjercicio(
+        ejerciciosDisponibles: ejerciciosDisponibles,
+        onAgregar: (ej) => provider.agregarEjercicio(ej),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      itemCount: provider.ejercicios.length + 1,
+      itemBuilder: (ctx, i) {
+        if (i == provider.ejercicios.length) {
+          // Botón de añadir ejercicio al final de la lista
+          return _BotonAgregarEjercicio(
+            ejerciciosDisponibles: ejerciciosDisponibles,
+            onAgregar: (ej) => provider.agregarEjercicio(ej),
+          );
+        }
+
+        final ej = provider.ejercicios[i];
+        return EjercicioCard(
+          key: ValueKey(ej.idEjercicio),
+          ejercicio: ej,
+          index: i,
+          onAgregarSerie: () => provider.agregarSerie(i),
+          onSerieCompletada: (idxSerie, peso, reps) =>
+              provider.completarSerie(i, idxSerie, peso, reps),
+        );
+      },
+    );
+  }
+}
+
+class _AgregarPrimerEjercicio extends StatelessWidget {
+  final List<Map<String, dynamic>> ejerciciosDisponibles;
+  final Function(Map<String, dynamic>) onAgregar;
+
+  const _AgregarPrimerEjercicio({
+    required this.ejerciciosDisponibles,
+    required this.onAgregar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.add_circle_outline,
+              color: AppColors.textMuted, size: 60),
+          const SizedBox(height: 16),
+          const Text('Entreno libre iniciado',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          const Text('Añade tu primer ejercicio para empezar',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => _mostrarSelectorEjercicio(
+                context, ejerciciosDisponibles, onAgregar),
+            icon: const Icon(Icons.add),
+            label: const Text('Añadir ejercicio'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BotonAgregarEjercicio extends StatelessWidget {
+  final List<Map<String, dynamic>> ejerciciosDisponibles;
+  final Function(Map<String, dynamic>) onAgregar;
+
+  const _BotonAgregarEjercicio({
+    required this.ejerciciosDisponibles,
+    required this.onAgregar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: OutlinedButton.icon(
+        onPressed: () => _mostrarSelectorEjercicio(
+            context, ejerciciosDisponibles, onAgregar),
+        icon: const Icon(Icons.add, color: AppColors.accentBlue),
+        label: const Text('Añadir ejercicio',
+            style: TextStyle(color: AppColors.accentBlue)),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 48),
+          side: const BorderSide(color: AppColors.accentBlue, width: 1),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+}
+
+void _mostrarSelectorEjercicio(
+  BuildContext context,
+  List<Map<String, dynamic>> ejercicios,
+  Function(Map<String, dynamic>) onSeleccionado,
+) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: AppColors.bg1,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => _EjercicioSelectorSheet(
+      ejercicios: ejercicios,
+      onSeleccionado: onSeleccionado,
+    ),
+  );
+}
+
+class _EjercicioSelectorSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> ejercicios;
+  final Function(Map<String, dynamic>) onSeleccionado;
+
+  const _EjercicioSelectorSheet({
+    required this.ejercicios,
+    required this.onSeleccionado,
+  });
+
+  @override
+  State<_EjercicioSelectorSheet> createState() =>
+      _EjercicioSelectorSheetState();
+}
+
+class _EjercicioSelectorSheetState extends State<_EjercicioSelectorSheet> {
+  String _busqueda = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtrados = widget.ejercicios.where((e) {
+      final nombre = (e['name'] as String? ?? '').toLowerCase();
+      return nombre.contains(_busqueda.toLowerCase());
+    }).toList();
+
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+              color: AppColors.bg3, borderRadius: BorderRadius.circular(2)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: TextField(
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Buscar ejercicio...',
+              prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
+            ),
+            onChanged: (v) => setState(() => _busqueda = v),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: filtrados.length,
+            itemBuilder: (_, i) {
+              final ej = filtrados[i];
+              return ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.bg3,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.fitness_center,
+                      color: AppColors.accentBlue, size: 18),
+                ),
+                title: Text(ej['name'] as String? ?? '',
+                    style: const TextStyle(color: AppColors.textPrimary)),
+                subtitle: Text(
+                  ej['musculos_principales'] as String? ?? '',
+                  style: const TextStyle(
+                      color: AppColors.textMuted, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onSeleccionado(ej);
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Vista de error ────────────────────────────────────────────────────────────
+
+class _ErrorView extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorView({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off,
+                color: AppColors.accentOrange, size: 48),
+            const SizedBox(height: 12),
+            const Text('No se pudo cargar',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
+            const SizedBox(height: 6),
+            Text(error,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textMuted),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
           ],
         ),
       ),

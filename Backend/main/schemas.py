@@ -154,3 +154,27 @@ class CrearRutinaResponse(BaseModel):
     name_rutina: str
     fecha: date
     ejercicios: List[dict]
+
+
+# ── Nuevos schemas para registro en tiempo real ─────────────────────────────
+
+class IniciarEntrenamientoRequest(BaseModel):
+    """Crea un registro en `entrenamiento` al comenzar un ejercicio.
+    Devuelve id_entrenamiento para usarlo en llamadas de series."""
+    id_ejercicio: int = Field(..., gt=0, description="ID del ejercicio a iniciar")
+    id_rutina: Optional[int] = Field(None, gt=0, description="ID de la rutina (opcional si es entreno libre)")
+
+
+class RegistrarSerieRequest(BaseModel):
+    """Registra una sola serie al presionar el botón Check ✓ en la app."""
+    peso: float = Field(..., gt=0, le=999, description="Peso utilizado en kg")
+    reps: int   = Field(..., gt=0, le=200, description="Repeticiones realizadas")
+
+
+class ChatIaRequest(BaseModel):
+    """Envía un mensaje al coach IA junto al contexto del entreno activo."""
+    mensaje: str  = Field(..., min_length=1, max_length=2000, description="Mensaje del usuario")
+    contexto_entreno: dict = Field(
+        default_factory=dict,
+        description="Contexto del entreno en curso: {ejercicios:[{nombre, series_completadas:[{peso,reps}]}], duracion_minutos}"
+    )

@@ -1,55 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../models/chat_message_model.dart';
 import '../providers/workout_provider.dart';
 import '../services/api_service.dart';
 
-/// Pantalla completa del chat IA (tab de la BottomNavigationBar).
-/// Diferente del overlay: aquí el usuario puede chatear sin un entreno activo,
-/// con historial completo y sugerencias generales.
-class ChatScreen extends StatefulWidget {
+/// Panel inferior de chat con el coach IA.
+/// Se abre como DraggableScrollableSheet sin abandonar la pantalla de entreno.
+/// Recibe el contexto del entreno en tiempo real desde WorkoutProvider.
+class IaChatOverlay extends StatefulWidget {
   final int userId;
+  final ScrollController scrollController;
 
-  const ChatScreen({super.key, required this.userId});
+  const IaChatOverlay({
+    super.key,
+    required this.userId,
+    required this.scrollController,
+  });
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  State<IaChatOverlay> createState() => _IaChatOverlayState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _IaChatOverlayState extends State<IaChatOverlay> {
   final ApiService _api = ApiService();
   final List<ChatMessageModel> _messages = [];
   final TextEditingController _inputCtrl = TextEditingController();
   final ScrollController _listCtrl = ScrollController();
   bool _isLoading = false;
 
+  // Chips de sugerencias rápidas
   static const _sugerencias = [
-    '¿Qué debo entrenar hoy?',
-    '¿Cómo progreso más rápido?',
-    'Dame un plan de nutrición',
-    '¿Cómo evito el sobreentrenamiento?',
-    'Analiza mi progreso',
+    '¿Cómo sustituyo este ejercicio?',
+    '¿Subo el peso hoy?',
+    '¿Cuánto descanso me queda?',
+    'Corrige mi técnica',
+    '¿Qué músculo trabaja esto?',
   ];
 
   Future<void> _sendMessage(String text) async {
     final msg = text.trim();
     if (msg.isEmpty || _isLoading) return;
 
-    // Si hay un entreno activo, incluir su contexto
-    Map<String, dynamic> contexto = {};
-    try {
-      final provider = context.read<WorkoutProvider>();
-      if (provider.activo) {
-        contexto = provider.buildContextoParaChat();
-      }
-    } catch (_) {}
+    final contexto =
+        context.read<WorkoutProvider>().buildContextoParaChat();
 
     setState(() {
       _messages.add(ChatMessageModel(rol: 'user', texto: msg));
       _isLoading = true;
       _inputCtrl.clear();
     });
+
     _scrollToBottom();
 
     try {
@@ -95,79 +97,97 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg1,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: AppColors.accentPurple.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.auto_awesome,
-                  color: AppColors.accentPurple, size: 18),
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.bg1,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: AppColors.bg3, width: 1)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.bg3,
+              borderRadius: BorderRadius.circular(2),
             ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+
+          // ── Header ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Row(
               children: [
-                const Text('Coach IA',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary)),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentPurple.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.auto_awesome,
+                      color: AppColors.accentPurple, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Coach IA',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary)),
+                    // Estado del entreno en tiempo real
+                    Consumer<WorkoutProvider>(
+                      builder: (_, p, __) => Text(
+                        p.activo
+                            ? '⏱ ${p.duracionFormateada} — ${p.ejercicios.length} ejercicios'
+                            : 'Sin entreno activo',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppColors.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                // Badge "En vivo"
                 Consumer<WorkoutProvider>(
-                  builder: (_, p, __) => Text(
-                    p.activo
-                        ? '⏱ Entreno activo — ${p.duracionFormateada}'
-                        : 'Tu entrenador personal',
-                    style: const TextStyle(
-                        fontSize: 10, color: AppColors.textMuted),
+                  builder: (_, p, __) => AnimatedOpacity(
+                    opacity: p.activo ? 1 : 0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentGreen.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle,
+                              size: 6, color: AppColors.accentGreen),
+                          SizedBox(width: 4),
+                          Text('En vivo',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.accentGreen,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          // Badge "En vivo" si hay entreno activo
-          Consumer<WorkoutProvider>(
-            builder: (_, p, __) => p.activo
-                ? Container(
-                    margin: const EdgeInsets.only(right: 16),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentGreen.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.circle,
-                            size: 7, color: AppColors.accentGreen),
-                        SizedBox(width: 4),
-                        Text('En vivo',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.accentGreen,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
           ),
-        ],
-      ),
 
-      body: Column(
-        children: [
           const Divider(height: 1, color: AppColors.bg3),
 
-          // ── Mensajes ────────────────────────────────────────────────────
+          // ── Lista de mensajes ────────────────────────────────────────────
           Expanded(
             child: _messages.isEmpty
                 ? _EmptyState(onSugerencia: _sendMessage)
@@ -184,10 +204,10 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
           ),
 
-          // ── Chips rápidos ─────────────────────────────────────────────
+          // ── Chips de sugerencias (solo cuando hay mensajes) ──────────────
           if (_messages.isNotEmpty)
             SizedBox(
-              height: 46,
+              height: 44,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding:
@@ -203,7 +223,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: AppColors.bg3,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: AppColors.accentPurple.withValues(alpha: 0.25)),
+                        color: AppColors.accentPurple.withValues(alpha: 0.25)),
                     ),
                     child: Text(_sugerencias[i],
                         style: const TextStyle(
@@ -214,7 +234,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-          // ── Input bar (zona del pulgar) ─────────────────────────────
+          // ── Barra de input (zona del pulgar) ─────────────────────────────
           SafeArea(
             top: false,
             child: Container(
@@ -265,7 +285,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               ? [AppColors.bg3, AppColors.bg3]
                               : [
                                   AppColors.accentPurple,
-                                  AppColors.accentBlue,
+                                  AppColors.accentBlue
                                 ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -292,81 +312,65 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-// ── Estado vacío ─────────────────────────────────────────────────────────────
+// ── Estado vacío con chips de sugerencias ────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   final Function(String) onSugerencia;
   const _EmptyState({required this.onSugerencia});
 
   static const _sugerencias = [
-    '¿Qué debo entrenar hoy?',
-    '¿Cómo progreso más rápido?',
-    'Dame un plan de nutrición',
-    '¿Cómo evito el sobreentrenamiento?',
+    '¿Cómo sustituyo este ejercicio?',
+    '¿Subo el peso hoy?',
+    '¿Cuánto descanso me queda?',
+    'Corrige mi técnica',
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.accentPurple, AppColors.accentBlue],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.auto_awesome,
-                  color: Colors.white, size: 34),
-            ),
-            const SizedBox(height: 16),
-            const Text('Tu Coach IA',
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary)),
-            const SizedBox(height: 8),
-            const Text(
-                'Pregúntame sobre entrenamiento, nutrición\no técnica. Conozco tu historial completo.',
-                style: TextStyle(
-                    fontSize: 14, color: AppColors.textMuted, height: 1.5),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 28),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: _sugerencias
-                  .map((s) => GestureDetector(
-                        onTap: () => onSugerencia(s),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppColors.bg3,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color:
-                                    AppColors.accentPurple.withValues(alpha: 0.3)),
-                          ),
-                          child: Text(s,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary)),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+      child: Column(
+        children: [
+          const Icon(Icons.auto_awesome,
+              color: AppColors.accentPurple, size: 40),
+          const SizedBox(height: 12),
+          const Text('¿En qué te puedo ayudar?',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 4),
+          const Text(
+              'El coach conoce tu entreno en tiempo real.\nPregúntale lo que necesites.',
+              style: TextStyle(
+                  fontSize: 13, color: AppColors.textMuted, height: 1.5),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: _sugerencias
+                .map((s) => GestureDetector(
+                      onTap: () => onSugerencia(s),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.bg3,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: AppColors.accentPurple.withValues(alpha: 0.3)),
                         ),
-                      ))
-                  .toList(),
-            ),
-          ],
-        ),
+                        child: Text(s,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary)),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ],
       ),
     );
   }
@@ -385,8 +389,8 @@ class _ChatBubble extends StatelessWidget {
     return Align(
       alignment: esUsuario ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.78),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         margin: const EdgeInsets.only(bottom: 10),
         padding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -415,11 +419,18 @@ class _ChatBubble extends StatelessWidget {
           ),
         ),
       ),
-    );
+    )
+        .animate()
+        .fadeIn(duration: 220.ms)
+        .slideX(
+            begin: esUsuario ? 0.15 : -0.15,
+            end: 0,
+            duration: 220.ms,
+            curve: Curves.easeOutCubic);
   }
 }
 
-// ── Indicador "escribiendo…" ──────────────────────────────────────────────────
+// ── Indicador de "escribiendo…" ───────────────────────────────────────────────
 
 class _TypingIndicator extends StatelessWidget {
   const _TypingIndicator();
@@ -430,10 +441,11 @@ class _TypingIndicator extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: const BoxDecoration(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
           color: AppColors.bg3,
-          borderRadius: BorderRadius.only(
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(18),
             topRight: Radius.circular(18),
             bottomRight: Radius.circular(18),
@@ -442,62 +454,25 @@ class _TypingIndicator extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            _Dot(delay: 0),
-            SizedBox(width: 4),
-            _Dot(delay: 150),
-            SizedBox(width: 4),
-            _Dot(delay: 300),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Dot extends StatefulWidget {
-  final int delay;
-  const _Dot({required this.delay});
-
-  @override
-  State<_Dot> createState() => _DotState();
-}
-
-class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _ctrl.repeat(reverse: true);
-    });
-    _anim = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _anim,
-      child: Container(
-        width: 7,
-        height: 7,
-        decoration: const BoxDecoration(
-          color: AppColors.textMuted,
-          shape: BoxShape.circle,
+          children: List.generate(
+            3,
+            (i) => Container(
+              width: 6,
+              height: 6,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: const BoxDecoration(
+                color: AppColors.textMuted, shape: BoxShape.circle),
+            )
+                .animate(onPlay: (c) => c.repeat())
+                .scaleY(
+                    begin: 0.4,
+                    end: 1.0,
+                    duration: 500.ms,
+                    delay: Duration(milliseconds: i * 150),
+                    curve: Curves.easeInOut)
+                .then()
+                .scaleY(begin: 1.0, end: 0.4, duration: 500.ms),
+          ),
         ),
       ),
     );
