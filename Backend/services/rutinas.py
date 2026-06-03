@@ -122,8 +122,15 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
 
 def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date, ejercicios: list[dict]) -> dict:
     """
-    Crea rutina + rutina_ejercicio + series en una única transacción.
-    Se asume que `series.id_entrenamiento` usará el id generado en `rutina_ejercicio`.
+    Crea rutina + rutina_ejercicio + entrenamiento + series en una única transacción.
+
+    Jerarquía de tablas respetada:
+      rutina  →  rutina_ejercicio  (plantilla de ejercicios de la rutina)
+      entrenamiento  →  series     (registros reales de series, ligados al usuario)
+
+    El id_entrenamiento que se usa en series.id_entrenamiento proviene de la
+    tabla `entrenamiento`, no de `rutina_ejercicio`. Esto es lo que exige la FK
+    `series_id_entrenamiento_fkey`.
     """
     conn = None
     try:
@@ -142,7 +149,7 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
 
         cursor = conn.cursor()
 
-        # Verificar usuario
+        # ── 1. Verificar que el usuario existe ──────────────────────────────
         cursor.execute("SELECT id_usuario FROM usuario WHERE id_usuario = %s", (id_usuario,))
         if not cursor.fetchone():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El usuario no existe")
@@ -150,7 +157,7 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
         if not name_rutina or len(name_rutina.strip()) == 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El nombre de la rutina no puede estar vacío")
 
-        # Insertar rutina
+        # ── 2. Insertar cabecera de rutina ──────────────────────────────────
         cursor.execute(
             """
             INSERT INTO rutina (id_usuario, name_rutina, fecha)
@@ -167,21 +174,24 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
         created_ejercicios = []
         for idx, ejercicio_obj in enumerate(ejercicios, start=1):
             id_ejercicio = ejercicio_obj.get("id_ejercicio")
-            series = ejercicio_obj.get("series")
+            series_payload = ejercicio_obj.get("series")
             orden = ejercicio_obj.get("orden") or idx
 
-            if not id_ejercicio or not series:
+            if not id_ejercicio or not series_payload:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Cada ejercicio debe incluir 'id_ejercicio' y al menos una 'series'"
                 )
 
-            # Verificar existencia del ejercicio
+            # ── 3. Verificar que el ejercicio existe ────────────────────────
             cursor.execute("SELECT id_ejercicio FROM ejercicios WHERE id_ejercicio = %s", (id_ejercicio,))
             if not cursor.fetchone():
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"El ejercicio {id_ejercicio} no existe")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"El ejercicio {id_ejercicio} no existe"
+                )
 
-            # Insertar rutina_ejercicio
+            # ── 4. Insertar en rutina_ejercicio (plantilla) ─────────────────
             cursor.execute(
                 """
                 INSERT INTO rutina_ejercicio (id_rutina, id_ejercicio, orden)
@@ -192,14 +202,40 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
             )
             id_rutina_ejercicio = cursor.fetchone()[0]
 
+            # ── 5. Insertar en entrenamiento (registro real) ────────────────
+            #    La tabla `series` tiene FK → entrenamiento.id_entrenamiento,
+            #    por lo que necesitamos un registro válido en `entrenamiento`
+            #    antes de poder insertar series.
+            cursor.execute(
+                """
+                INSERT INTO entrenamiento (id_usuario, id_ejercicio, fecha)
+                VALUES (%s, %s, %s)
+                RETURNING id_entrenamiento
+                """,
+                (id_usuario, id_ejercicio, fecha)
+            )
+            id_entrenamiento = cursor.fetchone()[0]
+
+            # ── 6. Insertar series (usando id_entrenamiento real) ───────────
             created_series = []
-            for serie in series:
+            for serie in series_payload:
                 reps = serie.get("reps")
                 peso = serie.get("peso")
-                tiempo_descanso = serie.get("tiempo_descanso")
+                # tiempo_descanso en la BD es INTEGER (segundos)
+                tiempo_descanso_raw = serie.get("tiempo_descanso")
+                if isinstance(tiempo_descanso_raw, str):
+                    # Convertir "60s" → 60 ó "01:00" → 60; si no parseable, None
+                    import re
+                    m = re.match(r'^(\d+)', tiempo_descanso_raw)
+                    tiempo_descanso = int(m.group(1)) if m else None
+                else:
+                    tiempo_descanso = int(tiempo_descanso_raw) if tiempo_descanso_raw is not None else None
 
                 if reps is None:
-                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cada serie necesita 'reps'")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Cada serie necesita 'reps'"
+                    )
 
                 cursor.execute(
                     """
@@ -207,7 +243,7 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
                     VALUES (%s, %s, %s, %s)
                     RETURNING id_serie
                     """,
-                    (id_rutina_ejercicio, peso, reps, tiempo_descanso)
+                    (id_entrenamiento, peso, reps, tiempo_descanso)
                 )
                 id_serie = cursor.fetchone()[0]
                 created_series.append({
@@ -219,11 +255,13 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
 
             created_ejercicios.append({
                 "id_rutina_ejercicio": id_rutina_ejercicio,
+                "id_entrenamiento": id_entrenamiento,
                 "id_ejercicio": id_ejercicio,
                 "orden": orden,
                 "series": created_series
             })
 
+        # ── 7. Commit de la transacción completa ────────────────────────────
         conn.commit()
 
         return {
@@ -241,7 +279,11 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
     except Exception as e:
         if conn:
             conn.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al crear la rutina completa: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear la rutina completa: {str(e)}"
+        )
     finally:
         if conn:
             release_connection(conn)
+

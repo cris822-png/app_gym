@@ -1,7 +1,10 @@
 import sys
 import os
+import logging
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 load_dotenv(dotenv_path)
@@ -52,9 +55,10 @@ def crear_ejercicio_service(name: str, musculos_principales: str, musculos_secun
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         if conn:
             conn.rollback()
+        logger.error("Error al crear ejercicio: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al crear el ejercicio en la base de datos"
@@ -99,7 +103,10 @@ def obtener_ejercicios_service() -> list[dict]:
             for fila in filas
         ]
 
-    except Exception:
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error al obtener ejercicios: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los ejercicios"

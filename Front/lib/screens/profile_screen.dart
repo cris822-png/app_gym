@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
 import 'create_routine_screen.dart';
 import '../models/usuario.dart';
 import '../services/api_service.dart';
@@ -111,16 +112,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         CircleAvatar(
           radius: 30,
-          backgroundColor: Colors.green.shade700,
-          child: Text(firstName.substring(0, 1).toUpperCase(), style: const TextStyle(fontSize: 28, color: Colors.white)),
+          backgroundColor: AppColors.accentBlue,
+          child: Text(
+            firstName.substring(0, 1).toUpperCase(),
+            style: const TextStyle(fontSize: 28, color: Colors.white),
+          ),
         ),
         const SizedBox(width: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${_usuario?.name ?? ''} ${_usuario?.surname ?? ''}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(
+              '${_usuario?.name ?? ''} ${_usuario?.surname ?? ''}',
+              style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary),
+            ),
             const SizedBox(height: 6),
-            Text('Miembro desde $memberSince', style: const TextStyle(color: Colors.black54)),
+            Text(
+              'Miembro desde $memberSince',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
           ],
         ),
       ],
@@ -195,9 +208,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(color: Colors.black54)),
+            Text(title,
+                style: const TextStyle(
+                    color: AppColors.textSecondary)),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary)),
           ],
         ),
       ),
@@ -208,11 +227,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return ListTile(
       onTap: onTap ?? () {},
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      tileColor: Colors.grey.shade100,
-      leading: Icon(icon, color: Colors.green.shade700),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
+      tileColor: AppColors.bg2,
+      leading: Icon(icon, color: AppColors.accentBlue),
+      title: Text(
+        title,
+        style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: AppColors.textSecondary),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: AppColors.textMuted,
+      ),
     );
   }
 
@@ -248,7 +278,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openCreateRoutine() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreateRoutineScreen()));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CreateRoutineScreen(userId: widget.userId),
+      ),
+    );
   }
 
   @override

@@ -71,7 +71,7 @@ class AppTheme {
           color: AppColors.textSecondary),
         labelSmall: GoogleFonts.inter(
           fontSize: 11, fontWeight: FontWeight.w500,
-          color: AppColors.textMuted, letterSpacing: 0.5),
+          color: AppColors.textSecondary, letterSpacing: 0.5),
       ),
       cardTheme: CardThemeData(
         color: AppColors.bg2,
@@ -111,12 +111,20 @@ class AppTheme {
           color: AppColors.textPrimary),
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.bg2,
         selectedItemColor: AppColors.accentBlue,
-        unselectedItemColor: AppColors.textMuted,
+        unselectedItemColor: AppColors.textSecondary,
+        selectedLabelStyle: GoogleFonts.inter(
+          fontSize: 11, fontWeight: FontWeight.w600,
+          color: AppColors.accentBlue),
+        unselectedLabelStyle: GoogleFonts.inter(
+          fontSize: 11, fontWeight: FontWeight.w500,
+          color: AppColors.textSecondary),
         type: BottomNavigationBarType.fixed,
         elevation: 0,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.bg3, thickness: 1, space: 1),

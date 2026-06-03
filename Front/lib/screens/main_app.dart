@@ -164,7 +164,7 @@ class _MainAppState extends State<MainApp> {
         onTap: _onItemTapped,
         backgroundColor: AppColors.bg2,
         selectedItemColor: AppColors.accentBlue,
-        unselectedItemColor: AppColors.textMuted,
+        unselectedItemColor: AppColors.textSecondary,
         elevation: 0,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(

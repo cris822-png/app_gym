@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
 import '../models/coach_recommendation.dart';
 import '../models/entrenamiento.dart';
 import '../models/nutricion.dart';
@@ -79,9 +80,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.all(16.0),
                   child: ListView(
                     children: [
-                      Text('Hola, ${widget.userName}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      Text('Hola, ${widget.userName}', style: Theme.of(context).textTheme.headlineLarge),
                       const SizedBox(height: 8),
-                      const Text('Este es tu resumen diario. Revisa recomendaciones, progreso y rutinas sugeridas.', style: TextStyle(color: Colors.black54)),
+                      const Text(
+                        'Este es tu resumen diario. Revisa recomendaciones, progreso y rutinas sugeridas.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
                       const SizedBox(height: 24),
                       _buildSummaryRow(),
                       _buildSummaryInfo(_nutricion.length),
@@ -124,7 +128,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSummaryInfo(int meals) {
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
-      child: Text('$meals comidas recientes registradas', style: const TextStyle(color: Colors.black54)),
+      child: Text('$meals comidas recientes registradas',
+          style: const TextStyle(color: AppColors.textSecondary)),
     );
   }
 
@@ -136,11 +141,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
+            Text(title,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary)),
             const SizedBox(height: 10),
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+            Text(subtitle,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textMuted)),
           ],
         ),
       ),
@@ -202,13 +216,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: widget.onOpenChat,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+        decoration: BoxDecoration(
+          color: AppColors.bg2,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.bg3),
+        ),
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Icon(icon, color: Colors.green.shade700),
+            Icon(icon, color: AppColors.accentGreen),
             const SizedBox(height: 12),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
           ],
         ),
       ),
