@@ -40,7 +40,7 @@ from services.usuarios import (
     verificar_sesion_service,
     eliminar_sesion_service,
 )
-from services.rutinas import crear_rutina_completa_service, obtener_rutinas_usuario_service
+from services.rutinas import crear_rutina_completa_service, obtener_rutinas_usuario_service, obtener_ejercicios_rutina_service
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
 from services.nutricion import crear_nutricion_service, obtener_nutricion_usuario_service
 from services.entrenamiento import (
@@ -139,6 +139,13 @@ async def crear_rutina(rutina: CrearRutinaRequest):
 @standarize_response
 async def obtener_rutinas_usuario(id_usuario: int):
     return {"rutinas": obtener_rutinas_usuario_service(id_usuario)}
+
+
+@app.get("/api/rutinas/{id_rutina}/ejercicios")
+@standarize_response
+async def obtener_ejercicios_rutina(id_rutina: int):
+    """Devuelve solo los ejercicios de una rutina específica via JOIN rutina_ejercicio."""
+    return {"ejercicios": obtener_ejercicios_rutina_service(id_rutina)}
 
 
 @app.post("/api/ejercicios", status_code=status.HTTP_201_CREATED)

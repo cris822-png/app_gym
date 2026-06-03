@@ -9,7 +9,7 @@ class ProgressEntry {
 
   factory ProgressEntry.fromJson(Map<String, dynamic> json) {
     return ProgressEntry(
-      peso: (json['peso'] as num).toDouble(),
+      peso: json['peso'] != null ? (json['peso'] as num).toDouble() : 0.0,
       date: json['date'] as String,
     );
   }

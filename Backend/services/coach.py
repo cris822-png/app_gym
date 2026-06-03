@@ -189,11 +189,14 @@ def _analizar_progresion(entrenamientos: list[dict]) -> list[str]:
     ejercicios = {}
     for item in entrenamientos:
         nombre = item["nombre_ejercicio"]
-        total_load = sum(s["peso"] * s["reps"] for s in item["series"])
+        series_con_datos = item["series"]
+        # Tratar peso=None como 0 (series de plantilla sin registro real aún)
+        total_load = sum((s["peso"] or 0) * (s["reps"] or 0) for s in series_con_datos)
+        pesos = [(s["peso"] or 0) for s in series_con_datos]
         ejercicios.setdefault(nombre, []).append({
             "fecha": item["fecha"],
             "total_load": total_load,
-            "max_peso": max(s["peso"] for s in item["series"])
+            "max_peso": max(pesos) if pesos else 0
         })
 
     observaciones = []
@@ -266,7 +269,11 @@ def _construir_prompt(usuario: dict, rutinas: list[dict], entrenamientos: list[d
         prompt.append(f"Nutrición reciente: {len(nutricion)} entradas.")
         prompt.append("Ejemplos de comidas: " + "; ".join([item['comida'] for item in nutricion[:3]]))
     for idx, item in enumerate(entrenamientos[:4], 1):
-        prompt.append(f"Entrenamiento {idx}: {item['nombre_ejercicio']} - series: {', '.join(str(s['peso']) + 'kgx' + str(s['reps']) for s in item['series'])}.")
+        series_str = ", ".join(
+            f"{s['peso'] or 0}kgx{s['reps'] or 0}"
+            for s in item["series"]
+        )
+        prompt.append(f"Entrenamiento {idx}: {item['nombre_ejercicio']} - series: {series_str}.")
     prompt.append(
         "Devuelve una sola respuesta con: 1) qué corregir ya, 2) qué mantener, 3) prioridades de sobrecarga progresiva y dieta."
     )

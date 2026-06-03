@@ -84,6 +84,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget build(BuildContext context) {
     return Consumer<WorkoutProvider>(
       builder: (context, provider, _) {
+        // Mostrar SnackBar si el provider registra un error (ej. fallo al guardar serie)
+        if (provider.error != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(provider.error!),
+                backgroundColor: Colors.red.shade700,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            provider.clearError();
+          });
+        }
         return Scaffold(
           backgroundColor: AppColors.bg1,
           // ── AppBar con timer ─────────────────────────────────────────────
@@ -153,6 +166,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       : _SelectorRutinaView(
                           rutinas: _rutinas,
                           ejercicios: _ejerciciosDisponibles,
+                          apiService: _api,
                           onRutinaSeleccionada: (ejerciciosDeLaRutina) async {
                             provider.iniciarEntreno();
                             await provider.cargarEjerciciosDeRutina(
@@ -182,21 +196,63 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
 // ── Vista: Selector de Rutina / Entreno libre ───────────────────────────────
 
-class _SelectorRutinaView extends StatelessWidget {
+class _SelectorRutinaView extends StatefulWidget {
   final List<Map<String, dynamic>> rutinas;
   final List<Map<String, dynamic>> ejercicios;
+  final ApiService apiService;
   final Function(List<Map<String, dynamic>>) onRutinaSeleccionada;
   final VoidCallback onEntrenoLibre;
 
   const _SelectorRutinaView({
     required this.rutinas,
     required this.ejercicios,
+    required this.apiService,
     required this.onRutinaSeleccionada,
     required this.onEntrenoLibre,
   });
 
   @override
+  State<_SelectorRutinaView> createState() => _SelectorRutinaViewState();
+}
+
+class _SelectorRutinaViewState extends State<_SelectorRutinaView> {
+  bool _cargandoRutina = false;
+
+  Future<void> _seleccionarRutina(int idRutina) async {
+    setState(() => _cargandoRutina = true);
+    try {
+      final ejerciciosDeRutina = await widget.apiService.getEjerciciosDeRutina(idRutina);
+      await widget.onRutinaSeleccionada(ejerciciosDeRutina);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar la rutina: $e'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cargandoRutina = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_cargandoRutina) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppColors.accentBlue),
+            SizedBox(height: 16),
+            Text('Cargando rutina...', style: TextStyle(color: AppColors.textMuted)),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -216,20 +272,17 @@ class _SelectorRutinaView extends StatelessWidget {
             color: AppColors.accentOrange,
             titulo: 'Entreno libre',
             subtitulo: 'Añade ejercicios sobre la marcha',
-            onTap: onEntrenoLibre,
+            onTap: widget.onEntrenoLibre,
           ),
 
-          if (rutinas.isNotEmpty) ...[
+          if (widget.rutinas.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text('Mis rutinas',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),
-            ...rutinas.map((r) => _RutinaItem(
+            ...widget.rutinas.map((r) => _RutinaItem(
                   rutina: r,
-                  // En este punto se pasarían los ejercicios de la rutina
-                  // desde la API. Por simplicidad pasamos la lista completa;
-                  // en producción haría GET /rutinas/{id}/ejercicios
-                  onTap: () => onRutinaSeleccionada(ejercicios),
+                  onTap: () => _seleccionarRutina(r['id_rutina'] as int),
                 )),
           ],
         ],

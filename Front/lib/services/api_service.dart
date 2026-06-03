@@ -102,6 +102,13 @@ class ApiService {
     return list.map((item) => Ejercicio.fromJson(item as Map<String, dynamic>)).toList();
   }
 
+  /// Devuelve solo los ejercicios de una rutina específica (via rutina_ejercicio JOIN ejercicios).
+  Future<List<Map<String, dynamic>>> getEjerciciosDeRutina(int idRutina) async {
+    final data = await _request('GET', '/rutinas/$idRutina/ejercicios');
+    final list = data['ejercicios'] as List<dynamic>;
+    return list.cast<Map<String, dynamic>>();
+  }
+
   Future<List<Nutricion>> getNutricion(int idUsuario) async {
     final data = await _request('GET', '/usuarios/$idUsuario/nutricion');
     final list = data['nutricion'] as List<dynamic>;
@@ -201,7 +208,7 @@ class ApiService {
   }) async {
     final data = await _request(
       'POST',
-      '/api/usuarios/$userId/entrenamientos/iniciar',
+      '/usuarios/$userId/entrenamientos/iniciar',
       body: {
         'id_ejercicio': idEjercicio,
         if (idRutina != null) 'id_rutina': idRutina,

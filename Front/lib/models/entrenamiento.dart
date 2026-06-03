@@ -6,8 +6,8 @@ class Serie {
 
   factory Serie.fromJson(Map<String, dynamic> json) {
     return Serie(
-      peso: (json['peso'] as num).toDouble(),
-      reps: json['reps'] as int,
+      peso: json['peso'] != null ? (json['peso'] as num).toDouble() : 0.0,
+      reps: json['reps'] != null ? json['reps'] as int : 0,
     );
   }
 

@@ -287,3 +287,74 @@ def crear_rutina_completa_service(id_usuario: int, name_rutina: str, fecha: date
         if conn:
             release_connection(conn)
 
+
+def obtener_ejercicios_rutina_service(id_rutina: int) -> list[dict]:
+    """
+    Devuelve los ejercicios de una rutina específica usando JOIN.
+
+    rutina_ejercicio JOIN ejercicios
+    WHERE rutina_ejercicio.id_rutina = %s
+    ORDER BY rutina_ejercicio.orden ASC
+    """
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id_rutina FROM rutina WHERE id_rutina = %s", (id_rutina,))
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"La rutina {id_rutina} no existe"
+            )
+
+        cursor.execute("""
+            SELECT
+                re.id_rutina_ejercicio,
+                re.orden,
+                e.id_ejercicio,
+                e.name,
+                e.musculos_principales,
+                e.musculos_secundarios,
+                e.material
+            FROM rutina_ejercicio re
+            JOIN ejercicios e ON e.id_ejercicio = re.id_ejercicio
+            WHERE re.id_rutina = %s
+            ORDER BY re.orden ASC
+        """, (id_rutina,))
+
+        filas = cursor.fetchall()
+        return [
+            {
+                "id_rutina_ejercicio": fila[0],
+                "orden": fila[1],
+                "id_ejercicio": fila[2],
+                "name": fila[3],
+                "musculos_principales": fila[4],
+                "musculos_secundarios": fila[5],
+                "material": fila[6],
+            }
+            for fila in filas
+        ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener los ejercicios de la rutina: {str(e)}"
+        )
+    finally:
+        if conn:
+            release_connection(conn)
