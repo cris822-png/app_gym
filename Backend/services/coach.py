@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from dotenv import load_dotenv

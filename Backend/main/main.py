@@ -21,10 +21,9 @@ from main.schemas import (
     CrearRutinaRequest,
     CrearEjercicioRequest,
     CrearNutricionRequest,
-    CrearEntrenamientoRequest,
     CrearSesionRequest,
     VerificarSesionRequest,
-    # Nuevos schemas para registro en tiempo real
+    # Schemas para registro en tiempo real
     IniciarEntrenamientoRequest,
     RegistrarSerieRequest,
     ChatIaRequest,
@@ -44,7 +43,6 @@ from services.rutinas import crear_rutina_completa_service, obtener_rutinas_usua
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
 from services.nutricion import crear_nutricion_service, obtener_nutricion_usuario_service
 from services.entrenamiento import (
-    registrar_entrenamiento_service,
     obtener_entrenamientos_usuario_service,
     iniciar_entrenamiento_service,
     obtener_ultimo_registro_ejercicio_service,
@@ -182,15 +180,6 @@ async def obtener_nutricion(id_usuario: int):
     return {"nutricion": obtener_nutricion_usuario_service(id_usuario)}
 
 
-@app.post("/api/usuarios/{id_usuario}/entrenamientos", status_code=status.HTTP_201_CREATED)
-@standarize_response
-async def registrar_entrenamiento(id_usuario: int, entrenamiento: CrearEntrenamientoRequest):
-    return registrar_entrenamiento_service(
-        id_usuario=id_usuario,
-        id_rutina=entrenamiento.id_rutina,
-        fecha=entrenamiento.fecha,
-        ejercicios=[exercise.model_dump() for exercise in entrenamiento.ejercicios],
-    )
 
 
 @app.get("/api/usuarios/{id_usuario}/entrenamientos")

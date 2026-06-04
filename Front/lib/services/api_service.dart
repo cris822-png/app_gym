@@ -147,14 +147,6 @@ class ApiService {
     );
   }
 
-  Future<void> registrarEntrenamiento(int idUsuario, Entrenamiento entrenamiento) async {
-    await _request(
-      'POST',
-      '/usuarios/$idUsuario/entrenamientos',
-      body: entrenamiento.toPostJson(),
-    );
-  }
-
   Future<Map<String, dynamic>> crearSesion(int idUsuario, bool rememberMe, {int expiresDays = 30}) async {
     return _request(
       'POST',

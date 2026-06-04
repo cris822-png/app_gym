@@ -156,13 +156,6 @@ class WorkoutProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void actualizarSerie(int idxEjercicio, int idxSerie, double peso, int reps) {
-    _ejercicios[idxEjercicio].series[idxSerie]
-      ..peso = peso
-      ..reps = reps;
-    // No notificamos aquí para evitar rebuilds por cada tecla
-  }
-
   /// Marca la serie como completada y la persiste en la DB.
   Future<void> completarSerie(
       int idxEjercicio, int idxSerie, double peso, int reps) async {

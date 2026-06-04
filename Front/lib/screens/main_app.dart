@@ -25,6 +25,8 @@ class _MainAppState extends State<MainApp> {
   int? _userId;
   String _userName = 'Usuario';
   bool _checkingSession = true;
+  // WorkoutProvider de larga vida — sobrevive a los cambios de pestaña
+  WorkoutProvider? _workoutProvider;
 
   @override
   void initState() {
@@ -87,6 +89,8 @@ class _MainAppState extends State<MainApp> {
       _userId = userId;
       _userName = userName;
       _selectedIndex = 0;
+      // Crear el provider global ahora que tenemos el userId
+      _workoutProvider = WorkoutProvider(userId: userId);
     });
   }
 
@@ -113,6 +117,11 @@ class _MainAppState extends State<MainApp> {
     await prefs.remove('user_name');
     await prefs.remove('session_token');
     await prefs.remove('session_expiry');
+
+    // Limpiar el provider y liberar el timer (evitar memory leak)
+    _workoutProvider?.resetEntreno();
+    _workoutProvider?.dispose();
+    _workoutProvider = null;
     
     setState(() {
       _loggedIn = false;
@@ -135,70 +144,72 @@ class _MainAppState extends State<MainApp> {
       return LoginScreen(onLogin: _onLoginSuccess);
     }
 
+    // Inicializar el provider la primera vez que llegamos aquí con sesión persistida
+    _workoutProvider ??= WorkoutProvider(userId: _userId!);
+
     final pages = <Widget>[
       DashboardScreen(
         userId: _userId!,
         userName: _userName,
         onStartWorkout: () => _onItemTapped(1),
         onOpenChat: () => _onItemTapped(2),
+        // Agente 1 fix: navega a WorkoutScreen (tab 1) mostrando creación de rutina
+        onCreateRoutine: () => _onItemTapped(1),
       ),
-      // WorkoutScreen necesita WorkoutProvider inyectado con el userId real
-      ChangeNotifierProvider(
-        create: (_) => WorkoutProvider(userId: _userId!),
-        child: WorkoutScreen(userId: _userId!),
-      ),
-      // ChatScreen también necesita acceso al WorkoutProvider para el contexto
-      ChangeNotifierProvider(
-        create: (_) => WorkoutProvider(userId: _userId!),
-        child: ChatScreen(userId: _userId!),
-      ),
+      WorkoutScreen(userId: _userId!),
+      ChatScreen(userId: _userId!),
       ProgressScreen(userId: _userId!),
       ProfileScreen(userId: _userId!, onLogout: _onLogout),
     ];
 
-    return Scaffold(
-      body: SafeArea(child: pages.elementAt(_selectedIndex)),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        backgroundColor: AppColors.bg2,
-        selectedItemColor: AppColors.accentBlue,
-        unselectedItemColor: AppColors.textSecondary,
-        elevation: 0,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Inicio'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center_outlined),
-            activeIcon: Icon(Icons.fitness_center),
-            label: 'Entreno'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.auto_awesome_outlined),
-            activeIcon: Icon(Icons.auto_awesome),
-            label: 'Coach IA'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart_outlined),
-            activeIcon: Icon(Icons.show_chart),
-            label: 'Progreso'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Perfil'),
-        ],
+    // Agente 2 fix: WorkoutProvider envuelve todo el Scaffold para que el
+    // cronómetro y el estado del entreno persistan al cambiar de pestaña.
+    return ChangeNotifierProvider<WorkoutProvider>.value(
+      value: _workoutProvider!,
+      child: Scaffold(
+        body: SafeArea(child: pages.elementAt(_selectedIndex)),
+        bottomNavigationBar: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          backgroundColor: AppColors.bg2,
+          selectedItemColor: AppColors.accentBlue,
+          unselectedItemColor: AppColors.textSecondary,
+          elevation: 0,
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Inicio'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.fitness_center_outlined),
+              activeIcon: Icon(Icons.fitness_center),
+              label: 'Entreno'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.auto_awesome_outlined),
+              activeIcon: Icon(Icons.auto_awesome),
+              label: 'Coach IA'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.show_chart_outlined),
+              activeIcon: Icon(Icons.show_chart),
+              label: 'Progreso'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Perfil'),
+          ],
+        ),
+        // FAB solo en Dashboard (WorkoutScreen tiene su propio FAB de IA)
+        floatingActionButton: _selectedIndex == 0
+            ? FloatingActionButton.extended(
+                onPressed: () => _onItemTapped(1),
+                label: const Text('Iniciar Entreno'),
+                icon: const Icon(Icons.play_arrow),
+                backgroundColor: AppColors.accentBlue,
+              )
+            : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
-      // FAB solo en Dashboard (WorkoutScreen tiene su propio FAB de IA)
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => _onItemTapped(1),
-              label: const Text('Iniciar Entreno'),
-              icon: const Icon(Icons.play_arrow),
-              backgroundColor: AppColors.accentBlue,
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

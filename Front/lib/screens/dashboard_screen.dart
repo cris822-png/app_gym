@@ -12,8 +12,16 @@ class DashboardScreen extends StatefulWidget {
   final String userName;
   final VoidCallback onStartWorkout;
   final VoidCallback onOpenChat;
+  final VoidCallback onCreateRoutine;
 
-  const DashboardScreen({super.key, required this.userId, required this.userName, required this.onStartWorkout, required this.onOpenChat});
+  const DashboardScreen({
+    super.key,
+    required this.userId,
+    required this.userName,
+    required this.onStartWorkout,
+    required this.onOpenChat,
+    required this.onCreateRoutine,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -204,16 +212,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildQuickActionsRow() {
     return Row(
       children: [
-        Expanded(child: _buildActionTile(Icons.add_box, 'Crear rutina')),
+        Expanded(
+          child: _buildActionTile(
+            icon: Icons.add_box,
+            label: 'Crear rutina',
+            onTap: widget.onCreateRoutine,  // ✅ Agente 1 fix: navega a CreateRoutine
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _buildActionTile(Icons.chat_bubble_outline, 'Abrir coach')),
+        Expanded(
+          child: _buildActionTile(
+            icon: Icons.chat_bubble_outline,
+            label: 'Abrir coach',
+            onTap: widget.onOpenChat,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildActionTile(IconData icon, String label) {
+  Widget _buildActionTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
-      onTap: widget.onOpenChat,
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
