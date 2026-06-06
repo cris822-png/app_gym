@@ -25,10 +25,11 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = false;
 
   static const _sugerencias = [
+    '¿Cuántas calorías he comido hoy?',
     '¿Qué debo entrenar hoy?',
+    'Estima mis macros de hoy',
     '¿Cómo progreso más rápido?',
-    'Dame un plan de nutrición',
-    '¿Cómo evito el sobreentrenamiento?',
+    '¿Coído suficiente proteína?',
     'Analiza mi progreso',
   ];
 
@@ -299,10 +300,10 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onSugerencia});
 
   static const _sugerencias = [
+    '¿Cuántas calorías he comido hoy?',
+    'Estima mis macros de hoy',
     '¿Qué debo entrenar hoy?',
-    '¿Cómo progreso más rápido?',
-    'Dame un plan de nutrición',
-    '¿Cómo evito el sobreentrenamiento?',
+    '¿Coído suficiente proteína?',
   ];
 
   @override

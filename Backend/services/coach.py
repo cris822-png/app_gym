@@ -141,6 +141,11 @@ def _obtener_entrenamientos(id_usuario: int) -> list[dict]:
 
 
 def _obtener_nutricion(id_usuario: int) -> list[dict]:
+    """
+    Lee de registro_nutricion (tabla real). La tabla 'nutricion' no existe.
+    Devuelve los últimos 20 registros con comida, cantidad_g, tipo_comida, detalles y fecha_consumo.
+    Solo SELECT — la IA nunca escribe aquí.
+    """
     conn = None
     try:
         conn = connect_bbdd_pgsql(
@@ -149,12 +154,32 @@ def _obtener_nutricion(id_usuario: int) -> list[dict]:
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD")
         )
+        if not conn:
+            return []
         cursor = conn.cursor()
-        cursor.execute("SELECT comida, fecha_hora FROM nutricion WHERE id_usuario = %s ORDER BY fecha_hora DESC", (id_usuario,))
+        cursor.execute(
+            """
+            SELECT comida, cantidad_g, tipo_comida, detalles, fecha_consumo
+            FROM registro_nutricion
+            WHERE id_usuario = %s
+            ORDER BY fecha_consumo DESC
+            LIMIT 20
+            """,
+            (id_usuario,)
+        )
         return [
-            {"comida": fila[0], "time": fila[1].isoformat() if hasattr(fila[1], "isoformat") else str(fila[1])}
+            {
+                "comida": fila[0],
+                "cantidad_g": float(fila[1]) if fila[1] is not None else 0.0,
+                "tipo_comida": fila[2] or "",
+                "detalles": fila[3],
+                "time": fila[4].isoformat() if hasattr(fila[4], "isoformat") else str(fila[4]),
+            }
             for fila in cursor.fetchall()
         ]
+    except Exception:
+        # Si falla por cualquier motivo, devolvemos lista vacía — no crasheamos el dashboard
+        return []
     finally:
         if conn:
             release_connection(conn)
@@ -397,12 +422,17 @@ def chat_ia_service(id_usuario: int, mensaje: str, contexto_entreno: dict) -> di
     Flujo:
     1. Obtiene perfil del usuario (tabla `usuario`)
     2. Recupera historial reciente de `chat_ia` (últimos 10 mensajes)
-    3. Construye system_prompt con datos del usuario + contexto del entreno activo
-    4. Llama al LLM con historial + nuevo mensaje
-    5. Persiste user message y respuesta del asistente en `chat_ia`
+    3. Obtiene registros nutricionales de HOY de `registro_nutricion` (solo SELECT)
+    4. Construye system_prompt con datos del usuario + contexto entreno + contexto nutricional
+    5. Llama al LLM con historial + nuevo mensaje
+    6. Persiste user message y respuesta del asistente en `chat_ia`
 
-    Tablas:  usuario (SELECT) + chat_ia (SELECT + INSERT ×2)
+    Tablas:  usuario (SELECT) + chat_ia (SELECT + INSERT ×2) + registro_nutricion (SELECT)
+    PROHIBIDO: INSERT/UPDATE en registro_nutricion desde esta función.
     """
+    # Importación local para evitar ciclo (coach → registro_nutricion → coach)
+    from services.registro_nutricion import obtener_registros_nutricion_hoy_service
+
     conn = None
     try:
         conn = connect_bbdd_pgsql(
@@ -447,14 +477,35 @@ def chat_ia_service(id_usuario: int, mensaje: str, contexto_entreno: dict) -> di
                 lineas.append(f"  • {ej['nombre']}: {series_str}")
             ejercicios_texto = "\n".join(lineas)
         else:
-            ejercicios_texto = "  • Sin ejercicios registrados todavía."
+            ejercicios_texto = "  • Sin entreno activo en este momento."
 
         duracion = contexto_entreno.get("duracion_minutos", 0)
 
-        # System prompt con contexto completo
+        # 4. Obtener registros nutricionales de HOY (solo lectura — sin INSERT)
+        registros_hoy = obtener_registros_nutricion_hoy_service(id_usuario)
+        if registros_hoy:
+            tipo_labels = {
+                "desayuno": "Desayuno",
+                "almuerzo": "Almuerzo",
+                "cena": "Cena",
+                "snack": "Snack",
+                "postre": "Postre",
+            }
+            lineas_nutricion = []
+            for r in registros_hoy:
+                tipo = tipo_labels.get(r.get("tipo_comida", ""), r.get("tipo_comida", ""))
+                hora = r["fecha_consumo"][11:16] if len(r.get("fecha_consumo", "")) >= 16 else ""
+                lineas_nutricion.append(
+                    f"  • {tipo} ({hora}): {r['cantidad_g']:.0f}g de {r['comida']}"
+                )
+            nutricion_hoy_texto = "\n".join(lineas_nutricion)
+        else:
+            nutricion_hoy_texto = "  • El usuario no ha registrado ninguna comida hoy."
+
+        # 5. System prompt con contexto completo
         objetivo = usuario.get("objetivo_porcentage") or "sin definir"
         system_prompt = (
-            f"Eres un coach de fitness experto, conciso y motivador. Respondes en español.\n"
+            f"Eres un coach de fitness y nutrición experto, conciso y motivador. Respondes en español.\n"
             f"No alagues innecesariamente. Da consejos prácticos y directos.\n\n"
             f"PERFIL DEL USUARIO:\n"
             f"  Nombre: {usuario['name']} {usuario['surname']}\n"
@@ -462,21 +513,27 @@ def chat_ia_service(id_usuario: int, mensaje: str, contexto_entreno: dict) -> di
             f"  Objetivo: {objetivo}\n\n"
             f"ENTRENO ACTIVO AHORA MISMO (duración: {duracion} min):\n"
             f"{ejercicios_texto}\n\n"
-            f"Reglas: Responde en máximo 3-4 frases. Usa los datos del entreno activo si son relevantes."
+            f"COMIDAS REGISTRADAS HOY (usa estos datos para estimar calorías y macros):\n"
+            f"{nutricion_hoy_texto}\n\n"
+            f"Reglas:\n"
+            f"- Responde en máximo 4-5 frases.\n"
+            f"- Si el usuario pregunta por calorías o macros, usa los datos de comidas de hoy para estimarlos.\n"
+            f"- Si no hay comidas registradas hoy, indícalo claramente y pide que registre su comida primero.\n"
+            f"- Usa los datos del entreno activo si son relevantes a la pregunta."
         )
 
-        # 4. Construir lista de messages para el LLM
+        # 6. Construir lista de messages para el LLM
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(historial)
         messages.append({"role": "user", "content": mensaje})
 
-        # 5. Guardar mensaje del usuario en DB
+        # 7. Guardar mensaje del usuario en DB
         cursor.execute(
             "INSERT INTO chat_ia (id_usuario, rol, contenido) VALUES (%s, 'user', %s)",
             (id_usuario, mensaje)
         )
 
-        # 6. Llamar al LLM
+        # 8. Llamar al LLM
         try:
             respuesta = _call_groq_chat(messages)
         except Exception as exc:
@@ -486,7 +543,7 @@ def chat_ia_service(id_usuario: int, mensaje: str, contexto_entreno: dict) -> di
                 "Revisa tu GROQ_API_KEY y vuelve a intentarlo."
             )
 
-        # 7. Guardar respuesta del asistente en DB
+        # 9. Guardar respuesta del asistente en DB
         cursor.execute(
             "INSERT INTO chat_ia (id_usuario, rol, contenido) VALUES (%s, 'assistant', %s)",
             (id_usuario, respuesta)

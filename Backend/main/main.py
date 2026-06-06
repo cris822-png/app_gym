@@ -27,6 +27,8 @@ from main.schemas import (
     IniciarEntrenamientoRequest,
     RegistrarSerieRequest,
     ChatIaRequest,
+    # Schemas para registro nutricional manual
+    RegistroNutricionRequest,
 )
 from services.usuarios import (
     crear_usuario_service,
@@ -42,6 +44,10 @@ from services.usuarios import (
 from services.rutinas import crear_rutina_completa_service, obtener_rutinas_usuario_service, obtener_ejercicios_rutina_service
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
 from services.nutricion import crear_nutricion_service, obtener_nutricion_usuario_service
+from services.registro_nutricion import (
+    registrar_registro_nutricion_service,
+    obtener_todos_registros_nutricion_service,
+)
 from services.entrenamiento import (
     obtener_entrenamientos_usuario_service,
     iniciar_entrenamiento_service,
@@ -180,6 +186,27 @@ async def obtener_nutricion(id_usuario: int):
     return {"nutricion": obtener_nutricion_usuario_service(id_usuario)}
 
 
+# ── Registro Nutricional Manual (tabla registro_nutricion) ───────────────────
+
+@app.post("/api/usuarios/{id_usuario}/registro-nutricion", status_code=status.HTTP_201_CREATED)
+@standarize_response
+async def guardar_registro_nutricion(id_usuario: int, body: RegistroNutricionRequest):
+    """INSERT en registro_nutricion. Solo el usuario puede llamar a este endpoint.
+    La IA tiene PROHIBIDO escribir aquí."""
+    return registrar_registro_nutricion_service(
+        id_usuario=id_usuario,
+        comida=body.comida,
+        cantidad_g=body.cantidad_g,
+        tipo_comida=body.tipo_comida,
+        fecha_consumo=body.fecha_consumo,
+    )
+
+
+@app.get("/api/usuarios/{id_usuario}/registro-nutricion")
+@standarize_response
+async def obtener_registros_nutricion(id_usuario: int):
+    """SELECT de todos los registros nutricionales del usuario."""
+    return {"registros": obtener_todos_registros_nutricion_service(id_usuario)}
 
 
 @app.get("/api/usuarios/{id_usuario}/entrenamientos")

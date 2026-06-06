@@ -178,3 +178,16 @@ class ChatIaRequest(BaseModel):
         default_factory=dict,
         description="Contexto del entreno en curso: {ejercicios:[{nombre, series_completadas:[{peso,reps}]}], duracion_minutos}"
     )
+
+
+# ── Schemas para Registro Nutricional Manual ────────────────────────────────
+
+class RegistroNutricionRequest(BaseModel):
+    """Registro manual de una comida en tabla registro_nutricion."""
+    comida: str = Field(..., min_length=1, max_length=255, description="Nombre de la comida")
+    cantidad_g: float = Field(..., gt=0, le=9999, description="Cantidad en gramos")
+    tipo_comida: str = Field(
+        ...,
+        description="Tipo: desayuno, almuerzo, cena, snack, postre",
+    )
+    fecha_consumo: datetime = Field(..., description="Fecha y hora de consumo en ISO-8601")

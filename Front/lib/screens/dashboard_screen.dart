@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../models/coach_recommendation.dart';
 import '../models/entrenamiento.dart';
-import '../models/nutricion.dart';
+import '../models/registro_nutricion.dart';
 import '../models/usuario.dart';
 import '../services/api_service.dart';
+import 'nutricion_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int userId;
@@ -33,7 +34,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _error;
   Usuario? _usuario;
   CoachRecommendation? _recommendation;
-  List<Nutricion> _nutricion = [];
+  List<RegistroNutricion> _registrosNutricion = [];
   List<Entrenamiento> _entrenamientos = [];
 
   @override
@@ -51,13 +52,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final usuario = await _apiService.getUsuario(widget.userId);
       final recommendation = await _apiService.getCoachRecommendation(widget.userId);
-      final nutricion = await _apiService.getNutricion(widget.userId);
+      final registros = await _apiService.getRegistrosNutricion(widget.userId);
       final entrenamientos = await _apiService.getEntrenamientos(widget.userId);
 
       setState(() {
         _usuario = usuario;
         _recommendation = recommendation;
-        _nutricion = nutricion;
+        _registrosNutricion = registros;
         _entrenamientos = entrenamientos;
       });
     } catch (e) {
@@ -80,38 +81,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(onPressed: _loadData, icon: const Icon(Icons.refresh)),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ListView(
-                    children: [
-                      Text('Hola, ${widget.userName}', style: Theme.of(context).textTheme.headlineLarge),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Este es tu resumen diario. Revisa recomendaciones, progreso y rutinas sugeridas.',
-                        style: TextStyle(color: AppColors.textSecondary),
+      body: Stack(
+        children: [
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(child: Text('Error: $_error'))
+                  : Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: ListView(
+                        children: [
+                          Text('Hola, ${widget.userName}',
+                              style: Theme.of(context).textTheme.headlineLarge),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Este es tu resumen diario. Revisa recomendaciones, progreso y rutinas sugeridas.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSummaryRow(),
+                          _buildSummaryInfo(_registrosNutricion.length),
+                          const SizedBox(height: 20),
+                          _buildRecommendationCard(),
+                          const SizedBox(height: 20),
+                          _buildWorkoutCard(),
+                          const SizedBox(height: 20),
+                          _buildQuickActionsRow(),
+                          const SizedBox(height: 20),
+                          _buildRecentSection(),
+                          // Espacio para que el FAB central no tape el último item
+                          const SizedBox(height: 80),
+                        ],
                       ),
-                      const SizedBox(height: 24),
-                      _buildSummaryRow(),
-                      _buildSummaryInfo(_nutricion.length),
-                      const SizedBox(height: 20),
-                      _buildRecommendationCard(),
-                      const SizedBox(height: 20),
-                      _buildWorkoutCard(),
-                      const SizedBox(height: 20),
-                      _buildQuickActionsRow(),
-                      const SizedBox(height: 20),
-                      _buildRecentSection(),
-                    ],
-                  ),
+                    ),
+
+          // ── FAB esquina inferior izquierda: Nutrición ──
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'fab_nutricion',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NutricionScreen(userId: widget.userId),
                 ),
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              tooltip: 'Mi Nutrición',
+              child: const Icon(Icons.restaurant_menu,
+                  color: Colors.white, size: 22),
+            ),
+          ),
+        ],
+      ),
+      // ── FAB central: Iniciar Entreno ──
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_entreno',
         onPressed: widget.onStartWorkout,
-        icon: const Icon(Icons.play_arrow),
-        label: const Text('Iniciar Entreno'),
+        backgroundColor: AppColors.accentGreen,
+        icon: const Icon(Icons.play_arrow, color: Colors.white),
+        label: const Text('Iniciar Entreno',
+            style: TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w700)),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );

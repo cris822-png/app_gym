@@ -8,6 +8,7 @@ import '../models/ejercicio.dart';
 import '../models/entrenamiento.dart';
 import '../models/nutricion.dart';
 import '../models/progreso.dart';
+import '../models/registro_nutricion.dart';
 import '../models/rutina.dart';
 import '../models/usuario.dart';
 
@@ -234,6 +235,30 @@ class ApiService {
       body: {'mensaje': mensaje, 'contexto_entreno': contextoEntreno},
     );
     return data['respuesta'] as String? ?? 'Sin respuesta del coach.';
+  }
+
+  // ── Registro Nutricional Manual ────────────────────────────────────────
+
+  /// Guarda una comida en `registro_nutricion`. Solo el usuario puede llamar a esto.
+  Future<RegistroNutricion> guardarRegistroNutricion(
+      int idUsuario, RegistroNutricion registro) async {
+    final data = await _request(
+      'POST',
+      '/usuarios/$idUsuario/registro-nutricion',
+      body: registro.toJson(),
+    );
+    return RegistroNutricion.fromJson(data);
+  }
+
+  /// Obtiene todos los registros nutricionales del usuario.
+  Future<List<RegistroNutricion>> getRegistrosNutricion(int idUsuario) async {
+    final data =
+        await _request('GET', '/usuarios/$idUsuario/registro-nutricion');
+    final list = data['registros'] as List<dynamic>;
+    return list
+        .map((item) =>
+            RegistroNutricion.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 }
 
