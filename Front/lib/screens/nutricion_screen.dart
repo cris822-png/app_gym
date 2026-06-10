@@ -405,6 +405,7 @@ class _NutricionFormSheetState extends State<_NutricionFormSheet> {
   final _formKey = GlobalKey<FormState>();
   final _comidaCtrl = TextEditingController();
   final _gramosCtrl = TextEditingController();
+  final _detallesCtrl = TextEditingController();
 
   String _tipoSeleccionado = 'almuerzo';
   DateTime _fechaConsumo = DateTime.now();
@@ -414,6 +415,7 @@ class _NutricionFormSheetState extends State<_NutricionFormSheet> {
   void dispose() {
     _comidaCtrl.dispose();
     _gramosCtrl.dispose();
+    _detallesCtrl.dispose();
     super.dispose();
   }
 
@@ -461,10 +463,12 @@ class _NutricionFormSheetState extends State<_NutricionFormSheet> {
     setState(() => _guardando = true);
 
     try {
+      final detalles = _detallesCtrl.text.trim();
       final registro = RegistroNutricion(
         comida: _comidaCtrl.text.trim(),
         cantidadG: double.parse(_gramosCtrl.text),
         tipoComida: _tipoSeleccionado,
+        detalles: detalles.isNotEmpty ? detalles : null,
         fechaConsumo: _fechaConsumo,
       );
 
@@ -659,9 +663,26 @@ class _NutricionFormSheetState extends State<_NutricionFormSheet> {
               ),
             ),
 
+            const SizedBox(height: 16),
+
+            // ── Ingredientes / Detalles (opcional) ──────────────────────────────
+            _Label('Ingredientes o Detalles (Opcional)'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _detallesCtrl,
+              maxLines: 3,
+              minLines: 2,
+              textCapitalization: TextCapitalization.sentences,
+              style: const TextStyle(
+                  color: AppColors.textPrimary, fontSize: 14),
+              decoration: _inputDeco(
+                  'Ej: pollo, arroz integral, aceite de oliva...'),
+              // Campo opcional — sin validator
+            ),
+
             const SizedBox(height: 28),
 
-            // ── Botón guardar ──────────────────────────────────────────────
+            // ── Botón guardar ──────────────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               height: 52,

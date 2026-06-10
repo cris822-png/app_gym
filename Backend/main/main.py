@@ -199,6 +199,7 @@ async def guardar_registro_nutricion(id_usuario: int, body: RegistroNutricionReq
         cantidad_g=body.cantidad_g,
         tipo_comida=body.tipo_comida,
         fecha_consumo=body.fecha_consumo,
+        detalles=body.detalles,
     )
 
 

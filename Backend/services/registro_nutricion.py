@@ -22,9 +22,10 @@ def registrar_registro_nutricion_service(
     cantidad_g: float,
     tipo_comida: str,
     fecha_consumo: datetime,
+    detalles: str | None = None,
 ) -> dict:
     """
-    INSERT en registro_nutricion.
+    INSERT en registro_nutricion (incluye campo opcional 'detalles').
 
     Tablas: registro_nutricion (INSERT)
     La IA tiene PROHIBIDO llamar a este servicio.
@@ -55,11 +56,19 @@ def registrar_registro_nutricion_service(
 
         cursor.execute(
             """
-            INSERT INTO registro_nutricion (id_usuario, comida, cantidad_g, tipo_comida, fecha_consumo)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO registro_nutricion
+                (id_usuario, comida, cantidad_g, tipo_comida, fecha_consumo, detalles)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id_registro
             """,
-            (id_usuario, comida.strip(), cantidad_g, tipo_comida.strip().lower(), fecha_consumo),
+            (
+                id_usuario,
+                comida.strip(),
+                cantidad_g,
+                tipo_comida.strip().lower(),
+                fecha_consumo,
+                detalles.strip() if detalles and detalles.strip() else None,
+            ),
         )
         id_registro = cursor.fetchone()[0]
         conn.commit()
@@ -70,6 +79,7 @@ def registrar_registro_nutricion_service(
             "comida": comida.strip(),
             "cantidad_g": cantidad_g,
             "tipo_comida": tipo_comida.strip().lower(),
+            "detalles": detalles,
             "fecha_consumo": fecha_consumo.isoformat(),
         }
 
@@ -95,6 +105,7 @@ def obtener_registros_nutricion_hoy_service(id_usuario: int, fecha: date | None 
     """
     SELECT en registro_nutricion para el día indicado (defecto: hoy).
     Solo lectura. La IA la llama para construir el context del system prompt.
+    Incluye 'detalles' para enriquecer el contexto del LLM.
 
     Tablas: registro_nutricion (SELECT)
     """
@@ -115,7 +126,7 @@ def obtener_registros_nutricion_hoy_service(id_usuario: int, fecha: date | None 
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id_registro, comida, cantidad_g, tipo_comida, fecha_consumo
+            SELECT id_registro, comida, cantidad_g, tipo_comida, detalles, fecha_consumo
             FROM registro_nutricion
             WHERE id_usuario = %s
               AND fecha_consumo::date = %s
@@ -131,7 +142,8 @@ def obtener_registros_nutricion_hoy_service(id_usuario: int, fecha: date | None 
                 "comida": fila[1],
                 "cantidad_g": float(fila[2]),
                 "tipo_comida": fila[3],
-                "fecha_consumo": fila[4].isoformat() if hasattr(fila[4], "isoformat") else str(fila[4]),
+                "detalles": fila[4],
+                "fecha_consumo": fila[5].isoformat() if hasattr(fila[5], "isoformat") else str(fila[5]),
             }
             for fila in filas
         ]
@@ -162,7 +174,7 @@ def obtener_todos_registros_nutricion_service(id_usuario: int) -> list[dict]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id_registro, comida, cantidad_g, tipo_comida, fecha_consumo
+            SELECT id_registro, comida, cantidad_g, tipo_comida, detalles, fecha_consumo
             FROM registro_nutricion
             WHERE id_usuario = %s
             ORDER BY fecha_consumo DESC
@@ -178,7 +190,8 @@ def obtener_todos_registros_nutricion_service(id_usuario: int) -> list[dict]:
                 "comida": fila[1],
                 "cantidad_g": float(fila[2]),
                 "tipo_comida": fila[3],
-                "fecha_consumo": fila[4].isoformat() if hasattr(fila[4], "isoformat") else str(fila[4]),
+                "detalles": fila[4],
+                "fecha_consumo": fila[5].isoformat() if hasattr(fila[5], "isoformat") else str(fila[5]),
             }
             for fila in filas
         ]

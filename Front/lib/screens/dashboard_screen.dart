@@ -84,9 +84,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Stack(
         children: [
           _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.accentBlue))
               : _error != null
-                  ? Center(child: Text('Error: $_error'))
+                  ? _buildErrorView()
                   : Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: ListView(
@@ -145,6 +147,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: Colors.white, fontWeight: FontWeight.w700)),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  // ── Vista amigable de error ─────────────────────────────────────────────────
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.accentOrange.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.wifi_off_rounded,
+                  color: AppColors.accentOrange, size: 38),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'No se pudo cargar el Dashboard',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'El servidor no respondió correctamente.\nComprueba que el backend está en marcha.',
+              style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textMuted,
+                  height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: 180,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: _loadData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accentBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Reintentar',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

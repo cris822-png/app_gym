@@ -495,12 +495,15 @@ def chat_ia_service(id_usuario: int, mensaje: str, contexto_entreno: dict) -> di
             for r in registros_hoy:
                 tipo = tipo_labels.get(r.get("tipo_comida", ""), r.get("tipo_comida", ""))
                 hora = r["fecha_consumo"][11:16] if len(r.get("fecha_consumo", "")) >= 16 else ""
+                # Incluir detalles si están disponibles — enriquece el contexto del LLM
+                detalles_parte = f" (Detalles: {r['detalles']})" if r.get("detalles") else ""
                 lineas_nutricion.append(
-                    f"  • {tipo} ({hora}): {r['cantidad_g']:.0f}g de {r['comida']}"
+                    f"  • {tipo} ({hora}): {r['cantidad_g']:.0f}g de {r['comida']}{detalles_parte}"
                 )
             nutricion_hoy_texto = "\n".join(lineas_nutricion)
         else:
             nutricion_hoy_texto = "  • El usuario no ha registrado ninguna comida hoy."
+
 
         # 5. System prompt con contexto completo
         objetivo = usuario.get("objetivo_porcentage") or "sin definir"

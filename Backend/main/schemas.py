@@ -191,3 +191,8 @@ class RegistroNutricionRequest(BaseModel):
         description="Tipo: desayuno, almuerzo, cena, snack, postre",
     )
     fecha_consumo: datetime = Field(..., description="Fecha y hora de consumo en ISO-8601")
+    detalles: Optional[str] = Field(
+        None,
+        max_length=1000,
+        description="Ingredientes o detalles adicionales del plato (opcional)"
+    )
