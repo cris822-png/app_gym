@@ -41,11 +41,24 @@ class UsuarioResponse(UsuarioBase):
     fecha_creacion: datetime
 
 
+class EjercicioDiaPayload(BaseModel):
+    """Un ejercicio dentro de un día de la rutina."""
+    id_ejercicio: int = Field(..., gt=0, description="ID del ejercicio")
+    orden: Optional[int] = Field(None, ge=1, description="Orden del ejercicio en el día")
+
+
+class DiaDtoPayload(BaseModel):
+    """Un día de la rutina con sus ejercicios."""
+    nombre_dia: str = Field(..., min_length=1, max_length=50, description="Nombre del día (ej. Lunes, Día A)")
+    ejercicios: List[EjercicioDiaPayload] = Field(..., min_length=1, description="Ejercicios de este día")
+
+
 class CrearRutinaRequest(BaseModel):
+    """Payload para crear una rutina completa con 3 niveles: Rutina → Días → Ejercicios."""
     id_usuario: int = Field(..., gt=0, description="ID del usuario propietario")
     name_rutina: str = Field(..., min_length=1, description="Nombre de la rutina")
     fecha: date = Field(..., description="Fecha de la rutina (YYYY-MM-DD)")
-    ejercicios: List["RutinaEjercicioPayload"] = Field(..., min_length=1, description="Lista de ejercicios con series")
+    dias: List[DiaDtoPayload] = Field(..., min_length=1, description="Lista de días con sus ejercicios")
 
 
 class RutinaResponse(BaseModel):
@@ -153,7 +166,7 @@ class CrearRutinaResponse(BaseModel):
     id_usuario: int
     name_rutina: str
     fecha: date
-    ejercicios: List[dict]
+    dias: List[dict]
 
 
 # ── Nuevos schemas para registro en tiempo real ─────────────────────────────

@@ -94,7 +94,9 @@ class ApiService {
   Future<List<Rutina>> getRutinas(int idUsuario) async {
     final data = await _request('GET', '/usuarios/$idUsuario/rutinas');
     final list = data['rutinas'] as List<dynamic>;
-    return list.map((item) => Rutina.fromJson(item as Map<String, dynamic>)).toList();
+    return list
+        .map((item) => Rutina.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Ejercicio>> getEjercicios() async {
@@ -103,11 +105,13 @@ class ApiService {
     return list.map((item) => Ejercicio.fromJson(item as Map<String, dynamic>)).toList();
   }
 
-  /// Devuelve solo los ejercicios de una rutina específica (via rutina_ejercicio JOIN ejercicios).
-  Future<List<Map<String, dynamic>>> getEjerciciosDeRutina(int idRutina) async {
-    final data = await _request('GET', '/rutinas/$idRutina/ejercicios');
-    final list = data['ejercicios'] as List<dynamic>;
-    return list.cast<Map<String, dynamic>>();
+  /// Devuelve los días (con ejercicios anidados) de una rutina específica.
+  Future<List<RutinaDia>> getDiasDeRutina(int idRutina) async {
+    final data = await _request('GET', '/rutinas/$idRutina/dias');
+    final list = data['dias'] as List<dynamic>;
+    return list
+        .map((d) => RutinaDia.fromJson(d as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Nutricion>> getNutricion(int idUsuario) async {
@@ -162,6 +166,10 @@ class ApiService {
 
   Future<Map<String, dynamic>> crearRutina(Map<String, dynamic> payload) async {
     return _request('POST', '/rutinas', body: payload);
+  }
+
+  Future<void> deleteRutina(int idRutina) async {
+    await _request('DELETE', '/rutinas/$idRutina');
   }
 
   Future<Map<String, dynamic>> verificarSesion(String token) async {

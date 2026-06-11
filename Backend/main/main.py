@@ -41,7 +41,12 @@ from services.usuarios import (
     verificar_sesion_service,
     eliminar_sesion_service,
 )
-from services.rutinas import crear_rutina_completa_service, obtener_rutinas_usuario_service, obtener_ejercicios_rutina_service
+from services.rutinas import (
+    crear_rutina_completa_service,
+    obtener_rutinas_usuario_service,
+    obtener_dias_rutina_service,
+    eliminar_rutina_service,
+)
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
 from services.nutricion import crear_nutricion_service, obtener_nutricion_usuario_service
 from services.registro_nutricion import (
@@ -131,11 +136,12 @@ async def actualizar_usuario(id_usuario: int, usuario: ActualizarUsuarioRequest)
 @app.post("/api/rutinas", status_code=status.HTTP_201_CREATED)
 @standarize_response
 async def crear_rutina(rutina: CrearRutinaRequest):
+    """Crea una rutina con 3 niveles: Rutina → Días → Ejercicios."""
     return crear_rutina_completa_service(
         id_usuario=rutina.id_usuario,
         name_rutina=rutina.name_rutina,
         fecha=rutina.fecha,
-        ejercicios=[e.model_dump() for e in rutina.ejercicios]
+        dias=[d.model_dump() for d in rutina.dias],
     )
 
 
@@ -145,11 +151,18 @@ async def obtener_rutinas_usuario(id_usuario: int):
     return {"rutinas": obtener_rutinas_usuario_service(id_usuario)}
 
 
-@app.get("/api/rutinas/{id_rutina}/ejercicios")
+@app.get("/api/rutinas/{id_rutina}/dias")
 @standarize_response
-async def obtener_ejercicios_rutina(id_rutina: int):
-    """Devuelve solo los ejercicios de una rutina específica via JOIN rutina_ejercicio."""
-    return {"ejercicios": obtener_ejercicios_rutina_service(id_rutina)}
+async def obtener_dias_rutina(id_rutina: int):
+    """Devuelve los días de una rutina con sus ejercicios (jerarquía 3 niveles)."""
+    return {"dias": obtener_dias_rutina_service(id_rutina)}
+
+
+@app.delete("/api/rutinas/{id_rutina}")
+@standarize_response
+async def eliminar_rutina(id_rutina: int):
+    """Elimina una rutina y todos sus dependientes por ON DELETE CASCADE."""
+    return eliminar_rutina_service(id_rutina)
 
 
 @app.post("/api/ejercicios", status_code=status.HTTP_201_CREATED)

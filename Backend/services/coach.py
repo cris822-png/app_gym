@@ -40,7 +40,7 @@ def _obtener_usuario(id_usuario: int) -> dict:
         cursor = conn.cursor()
         if _usuario_tiene_columna_peso(cursor):
             cursor.execute(
-                "SELECT id_usuario, name, surname, email, peso, altura, fecha_creacion "
+                "SELECT id_usuario, name, surname, email, peso, altura, fecha_creacion, objetivo_porcentage "
                 "FROM usuario WHERE id_usuario = %s",
                 (id_usuario,)
             )
@@ -53,9 +53,10 @@ def _obtener_usuario(id_usuario: int) -> dict:
             peso_valor = usuario[4]
             altura_valor = usuario[5]
             fecha_valor = usuario[6]
+            objetivo_porcentage = usuario[7]
         else:
             cursor.execute(
-                "SELECT id_usuario, name, surname, email, altura, fecha_creacion "
+                "SELECT id_usuario, name, surname, email, altura, fecha_creacion, objetivo_porcentage "
                 "FROM usuario WHERE id_usuario = %s",
                 (id_usuario,)
             )
@@ -68,6 +69,7 @@ def _obtener_usuario(id_usuario: int) -> dict:
             peso_valor = 0.0
             altura_valor = usuario[4]
             fecha_valor = usuario[5]
+            objetivo_porcentage = usuario[6]
         return {
             "id_usuario": usuario[0],
             "name": usuario[1],
@@ -75,7 +77,8 @@ def _obtener_usuario(id_usuario: int) -> dict:
             "email": usuario[3],
             "peso": peso_valor,
             "altura": altura_valor,
-            "fecha_creacion": fecha_valor.isoformat()
+            "fecha_creacion": fecha_valor.isoformat(),
+            "objetivo_porcentage": objetivo_porcentage
         }
     finally:
         if conn:
@@ -261,18 +264,22 @@ def _analizar_nutricion(nutricion: list[dict]) -> list[str]:
 
 def _generar_mensaje_directo(usuario: dict, rutinas: list[dict], frecuencia: int, progresion: list[str], nutricion: list[str], progreso: list[dict]) -> str:
     if frecuencia < 4:
-        recomendacion_frecuencia = "No puedes pretender 12% grasa con 2 o 3 sesiones por semana. Necesitas al menos 4-5 entrenamientos con foco de fuerza y déficit calibrado."
+        recomendacion_frecuencia = "No puedes pretender definir con 2 o 3 sesiones por semana. Necesitas al menos 4-5 entrenamientos con foco de fuerza y déficit calibrado."
     else:
         recomendacion_frecuencia = "La frecuencia es aceptable, pero no sirvo para halagar: si las cargas no suben, estás desperdiciando horas en el gym."
 
-    meta = "12% de grasa corporal"
+    objetivo = usuario.get("objetivo_porcentage")
+    meta = f"{objetivo} de grasa corporal" if objetivo else "12% de grasa corporal"
+    
+    # Tomar el peso del progreso más reciente si existe, sino el del usuario
+    peso_actual = progreso[0]["peso"] if progreso else usuario.get("peso")
+    peso_str = f"{peso_actual} kg" if peso_actual is not None else "Sin datos de peso"
+    altura_str = f"{usuario['altura']} cm" if usuario.get("altura") else "Sin datos de altura"
+
     resumen = (
-        f"Tienes {usuario['peso']} kg y {usuario['altura']} cm. Tu objetivo es {meta}."
+        f"Tienes {peso_str} y {altura_str}. Tu objetivo es {meta}."
         f" Hay {len(rutinas)} rutinas en el sistema."
     )
-    if progreso:
-        ultimo = progreso[0]
-        resumen += f" Último registro: {ultimo['peso']} kg."
 
     return (
         f"{resumen} {recomendacion_frecuencia} "

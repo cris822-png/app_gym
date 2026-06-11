@@ -210,15 +210,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSummaryRow() {
-    final weight = _usuario?.peso.toStringAsFixed(1) ?? '—';
-    final height = _usuario?.altura.toStringAsFixed(0) ?? '—';
+    final weight = _usuario?.peso != null && _usuario!.peso > 0 
+        ? '${_usuario!.peso.toStringAsFixed(1)} kg' 
+        : 'Sin datos';
+        
+    final grasa = _usuario?.objetivoPorcentage != null && _usuario!.objetivoPorcentage!.isNotEmpty
+        ? '${_usuario!.objetivoPorcentage}' 
+        : 'Sin datos';
+        
     final sessions = _entrenamientos.length;
 
     return Row(
       children: [
-        Expanded(child: _buildSummaryCard('Peso', '$weight kg', 'Última medición')),
+        Expanded(child: _buildSummaryCard('Peso', weight, 'Última medición')),
         const SizedBox(width: 12),
-        Expanded(child: _buildSummaryCard('Altura', '$height cm', 'Objetivo 12% grasa')),
+        Expanded(child: _buildSummaryCard('Grasa', grasa, 'Objetivo actual')),
         const SizedBox(width: 12),
         Expanded(child: _buildSummaryCard('Sesiones', '$sessions', 'Esta semana')),
       ],
@@ -262,6 +268,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRecommendationCard() {
+    final isLoading = _loading;
+    final hasData = _recommendation != null && _recommendation!.mensaje.isNotEmpty;
+    
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -271,7 +280,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             const Text('Recomendación directa', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            Text(_recommendation?.mensaje ?? 'No hay recomendaciones disponibles.', style: const TextStyle(fontSize: 14, height: 1.5)),
+            if (isLoading)
+              const Center(child: CircularProgressIndicator(strokeWidth: 2))
+            else if (hasData)
+              Text(_recommendation!.mensaje, style: const TextStyle(fontSize: 14, height: 1.5))
+            else
+              const Text('Sin datos. Completa tu perfil y añade entrenamientos para recibir recomendaciones.', style: TextStyle(fontSize: 14, height: 1.5, color: AppColors.textMuted)),
             const SizedBox(height: 16),
             ElevatedButton(onPressed: widget.onOpenChat, child: const Text('Abrir Chat IA')),
           ],

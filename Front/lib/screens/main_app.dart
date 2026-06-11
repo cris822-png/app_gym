@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/workout_provider.dart';
 import '../services/api_service.dart';
+import 'create_routine_screen.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'chat_screen.dart';
@@ -153,8 +154,14 @@ class _MainAppState extends State<MainApp> {
         userName: _userName,
         onStartWorkout: () => _onItemTapped(1),
         onOpenChat: () => _onItemTapped(2),
-        // Agente 1 fix: navega a WorkoutScreen (tab 1) mostrando creación de rutina
-        onCreateRoutine: () => _onItemTapped(1),
+        // Agente 1 fix: navega a CreateRoutineScreen
+        onCreateRoutine: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => CreateRoutineScreen(userId: _userId!),
+            ),
+          );
+        },
       ),
       WorkoutScreen(userId: _userId!),
       ChatScreen(userId: _userId!),

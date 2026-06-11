@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
+import '../models/rutina.dart';
 import '../providers/workout_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/ejercicio_card.dart';
@@ -25,7 +26,7 @@ class WorkoutScreen extends StatefulWidget {
 class _WorkoutScreenState extends State<WorkoutScreen> {
   final ApiService _api = ApiService();
   bool _loadingRutinas = true;
-  List<Map<String, dynamic>> _rutinas = [];
+  List<Rutina> _rutinas = [];
   List<Map<String, dynamic>> _ejerciciosDisponibles = [];
   String? _error;
 
@@ -44,10 +45,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       final rutinas = await _api.getRutinas(widget.userId);
       final ejercicios = await _api.getEjercicios();
       setState(() {
-        _rutinas = rutinas.map((r) => {
-          'id_rutina': r.idRutina,
-          'name_rutina': r.nameRutina,
-        }).toList();
+        _rutinas = rutinas;
         _ejerciciosDisponibles = ejercicios.map((e) => {
           'id_ejercicio': e.idEjercicio,
           'name': e.name,
@@ -167,14 +165,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           rutinas: _rutinas,
                           ejercicios: _ejerciciosDisponibles,
                           apiService: _api,
-                          onRutinaSeleccionada: (ejerciciosDeLaRutina) async {
+                          onRutinaSeleccionada: (ejerciciosDia) async {
                             provider.iniciarEntreno();
                             await provider.cargarEjerciciosDeRutina(
-                                ejerciciosDeLaRutina);
+                                ejerciciosDia);
                           },
                           onEntrenoLibre: () {
                             provider.iniciarEntreno();
                           },
+                          onRutinaEliminada: _cargarDatos,
                         ),
 
           // ── FAB: coach IA (solo durante entreno) ────────────────────────
@@ -197,11 +196,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 // ── Vista: Selector de Rutina / Entreno libre ───────────────────────────────
 
 class _SelectorRutinaView extends StatefulWidget {
-  final List<Map<String, dynamic>> rutinas;
+  final List<Rutina> rutinas;
   final List<Map<String, dynamic>> ejercicios;
   final ApiService apiService;
   final Function(List<Map<String, dynamic>>) onRutinaSeleccionada;
   final VoidCallback onEntrenoLibre;
+  final VoidCallback onRutinaEliminada;
 
   const _SelectorRutinaView({
     required this.rutinas,
@@ -209,6 +209,7 @@ class _SelectorRutinaView extends StatefulWidget {
     required this.apiService,
     required this.onRutinaSeleccionada,
     required this.onEntrenoLibre,
+    required this.onRutinaEliminada,
   });
 
   @override
@@ -218,11 +219,40 @@ class _SelectorRutinaView extends StatefulWidget {
 class _SelectorRutinaViewState extends State<_SelectorRutinaView> {
   bool _cargandoRutina = false;
 
-  Future<void> _seleccionarRutina(int idRutina) async {
+  /// Al seleccionar una rutina con múltiples días, pregunta al usuario
+  /// cuál día quiere entrenar hoy (Opción A: selector de día previo).
+  Future<void> _seleccionarRutina(Rutina rutina) async {
+    if (rutina.dias.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Esta rutina no tiene días configurados.'),
+          backgroundColor: AppColors.accentOrange,
+        ),
+      );
+      return;
+    }
+
+    RutinaDia? diaSeleccionado;
+
+    if (rutina.dias.length == 1) {
+      // Una sola opción — no hace falta preguntar
+      diaSeleccionado = rutina.dias.first;
+    } else {
+      // Mostrar dialog de selección de día
+      diaSeleccionado = await showDialog<RutinaDia>(
+        context: context,
+        builder: (ctx) => _DialogSeleccionDia(rutina: rutina),
+      );
+    }
+
+    if (diaSeleccionado == null || !mounted) return;
+
     setState(() => _cargandoRutina = true);
     try {
-      final ejerciciosDeRutina = await widget.apiService.getEjerciciosDeRutina(idRutina);
-      await widget.onRutinaSeleccionada(ejerciciosDeRutina);
+      final ejerciciosDia = diaSeleccionado.ejercicios
+          .map((e) => e.toWorkoutMap())
+          .toList();
+      await widget.onRutinaSeleccionada(ejerciciosDia);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -282,10 +312,114 @@ class _SelectorRutinaViewState extends State<_SelectorRutinaView> {
             const SizedBox(height: 10),
             ...widget.rutinas.map((r) => _RutinaItem(
                   rutina: r,
-                  onTap: () => _seleccionarRutina(r['id_rutina'] as int),
+                  apiService: widget.apiService,
+                  onTap: () => _seleccionarRutina(r),
+                  onDeleted: widget.onRutinaEliminada,
                 )),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ── Dialog: selección de día ──────────────────────────────────────────────────
+
+class _DialogSeleccionDia extends StatelessWidget {
+  final Rutina rutina;
+  const _DialogSeleccionDia({required this.rutina});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.bg2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Qué día entrenas?',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Text(
+              rutina.nameRutina,
+              style: const TextStyle(
+                  color: AppColors.textMuted, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            ...rutina.dias.map((dia) => _DiaOpcion(
+                  dia: dia,
+                  onTap: () => Navigator.of(context).pop(dia),
+                )),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar',
+                  style: TextStyle(color: AppColors.textMuted)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiaOpcion extends StatelessWidget {
+  final RutinaDia dia;
+  final VoidCallback onTap;
+  const _DiaOpcion({required this.dia, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bg3,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.accentBlue.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.calendar_today,
+                  color: AppColors.accentBlue, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dia.nombreDia,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14),
+                  ),
+                  Text(
+                    '${dia.ejercicios.length} ejercicio${dia.ejercicios.length != 1 ? 's' : ''}',
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.play_arrow,
+                color: AppColors.accentGreen, size: 22),
+          ],
+        ),
       ),
     );
   }
@@ -356,13 +490,58 @@ class _QuickStartCard extends StatelessWidget {
 }
 
 class _RutinaItem extends StatelessWidget {
-  final Map<String, dynamic> rutina;
+  final Rutina rutina;
+  final ApiService apiService;
   final VoidCallback onTap;
+  final VoidCallback onDeleted;
 
-  const _RutinaItem({required this.rutina, required this.onTap});
+  const _RutinaItem({
+    required this.rutina, 
+    required this.apiService, 
+    required this.onTap, 
+    required this.onDeleted
+  });
+
+  Future<void> _confirmarBorrado(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bg2,
+        title: const Text('Eliminar rutina', style: TextStyle(color: AppColors.textPrimary)),
+        content: Text('¿Estás seguro de que quieres borrar "${rutina.nameRutina}"? Esta acción no se puede deshacer.', 
+            style: const TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await apiService.deleteRutina(rutina.idRutina);
+        onDeleted();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al borrar: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final diasCount = rutina.dias.length;
+    final ejCount = rutina.totalEjercicios;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -387,13 +566,28 @@ class _RutinaItem extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                rutina['name_rutina'] as String? ?? 'Rutina',
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    rutina.nameRutina,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$diasCount día${diasCount != 1 ? 's' : ''} · $ejCount ejercicio${ejCount != 1 ? 's' : ''}',
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
+                ],
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppColors.textMuted, size: 22),
+              onPressed: () => _confirmarBorrado(context),
             ),
             const Icon(Icons.chevron_right,
                 color: AppColors.textMuted, size: 20),
