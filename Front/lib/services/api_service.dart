@@ -36,6 +36,7 @@ class ApiService {
       'GET' => _client.get(uri, headers: headers),
       'POST' => _client.post(uri, headers: headers, body: jsonEncode(body)),
       'PUT' => _client.put(uri, headers: headers, body: jsonEncode(body)),
+      'DELETE' => _client.delete(uri, headers: headers, body: body != null ? jsonEncode(body) : null),
       _ => throw ArgumentError('Método HTTP no soportado: $method'),
     };
 
