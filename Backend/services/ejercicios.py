@@ -86,7 +86,7 @@ def obtener_ejercicios_service() -> list[dict]:
 
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id_ejercicio, name, musculos_principales, musculos_secundarios, material, tiempo_descanso "
+            "SELECT id_ejercicio, name, musculos_principales, musculos_secundarios, material, descanso_default_seg "
             "FROM ejercicios ORDER BY name"
         )
         filas = cursor.fetchall()
@@ -98,7 +98,7 @@ def obtener_ejercicios_service() -> list[dict]:
                 "musculos_principales": fila[2],
                 "musculos_secundarios": fila[3],
                 "material": fila[4],
-                "tiempo_descanso": fila[5]
+                "descanso_default_seg": fila[5]
             }
             for fila in filas
         ]

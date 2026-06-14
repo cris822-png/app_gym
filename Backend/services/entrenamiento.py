@@ -164,6 +164,85 @@ def obtener_entrenamientos_usuario_service(id_usuario: int) -> list[dict]:
 
 # ── Nuevas funciones para registro en tiempo real ───────────────────────────
 
+def finalizar_lote_service(id_usuario: int, payload: dict) -> dict:
+    """
+    Sincroniza en una sola transacción todo el lote de ejercicios y series (incluyendo drop sets)
+    proveniente del caché local de la app móvil.
+    """
+    conn = None
+    try:
+        conn = connect_bbdd_pgsql(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        if not conn:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo conectar a la base de datos"
+            )
+
+        cursor = conn.cursor()
+
+        # Validar usuario
+        cursor.execute("SELECT id_usuario FROM usuario WHERE id_usuario = %s", (id_usuario,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+        id_rutina = payload.get("id_rutina")
+        fecha = payload.get("fecha")
+        ejercicios = payload.get("ejercicios", [])
+
+        entrenos_guardados = []
+        for ej in ejercicios:
+            id_ejercicio = ej.get("id_ejercicio")
+            series = ej.get("series", [])
+            
+            # Insertar el entrenamiento (1 por cada ejercicio en el lote)
+            cursor.execute(
+                "INSERT INTO entrenamiento (id_usuario, id_ejercicio, id_rutina, fecha) VALUES (%s, %s, %s, %s) RETURNING id_entrenamiento",
+                (id_usuario, id_ejercicio, id_rutina, fecha)
+            )
+            id_entrenamiento = cursor.fetchone()[0]
+
+            for s in series:
+                cursor.execute(
+                    "INSERT INTO series (id_entrenamiento, peso, reps, tipo_serie) VALUES (%s, %s, %s, %s) RETURNING id_serie",
+                    (id_entrenamiento, s["peso"], s["reps"], s.get("tipo_serie", "normal"))
+                )
+                id_serie_padre = cursor.fetchone()[0]
+
+                # Insertar drop sets asociadas
+                for ds in s.get("drop_sets", []):
+                    cursor.execute(
+                        "INSERT INTO series (id_entrenamiento, peso, reps, tipo_serie, id_serie_padre) VALUES (%s, %s, %s, %s, %s) RETURNING id_serie",
+                        (id_entrenamiento, ds["peso"], ds["reps"], "drop_set", id_serie_padre)
+                    )
+
+            entrenos_guardados.append(id_entrenamiento)
+
+        conn.commit()
+        return {"status": "success", "entrenamientos_creados": entrenos_guardados}
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al finalizar entrenamiento en lote: {str(e)}"
+        )
+    finally:
+        if conn:
+            release_connection(conn)
+
+
+
+
 def iniciar_entrenamiento_service(id_usuario: int, id_ejercicio: int, id_rutina: int | None) -> dict:
     """
     Crea UNA fila en `entrenamiento` para un ejercicio concreto.

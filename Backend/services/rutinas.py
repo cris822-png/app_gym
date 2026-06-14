@@ -132,7 +132,7 @@ def crear_rutina_completa_service(
 
                 # Verificar que el ejercicio existe
                 cursor.execute(
-                    "SELECT id_ejercicio, name FROM ejercicios WHERE id_ejercicio = %s",
+                    "SELECT id_ejercicio, name, descanso_default_seg FROM ejercicios WHERE id_ejercicio = %s",
                     (id_ejercicio,),
                 )
                 ej_row = cursor.fetchone()
@@ -141,14 +141,16 @@ def crear_rutina_completa_service(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"El ejercicio {id_ejercicio} no existe",
                     )
+                
+                descanso_default = ej_row[2] or 90
 
                 cursor.execute(
                     """
-                    INSERT INTO rutina_ejercicio (id_rutina_dia, id_ejercicio, orden, grupo_superset)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO rutina_ejercicio (id_rutina_dia, id_ejercicio, orden, grupo_superset, tiempo_descanso)
+                    VALUES (%s, %s, %s, %s, %s)
                     RETURNING id_rutina_ejercicio
                     """,
-                    (id_rutina_dia, id_ejercicio, orden, grupo_superset),
+                    (id_rutina_dia, id_ejercicio, orden, grupo_superset, descanso_default),
                 )
                 id_rutina_ejercicio = cursor.fetchone()[0]
 
@@ -158,6 +160,7 @@ def crear_rutina_completa_service(
                     "name": ej_row[1],
                     "orden": orden,
                     "grupo_superset": grupo_superset,
+                    "tiempo_descanso": descanso_default,
                 })
 
             created_dias.append({
@@ -218,6 +221,7 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
                 re.id_rutina_ejercicio,
                 re.orden,
                 re.grupo_superset,
+                re.tiempo_descanso,
                 e.id_ejercicio,
                 e.name,
                 e.musculos_principales,
@@ -242,7 +246,7 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
             (
                 id_rutina, name_rutina, fecha,
                 id_rutina_dia, nombre_dia,
-                id_rutina_ejercicio, orden, grupo_superset,
+                id_rutina_ejercicio, orden, grupo_superset, tiempo_descanso,
                 id_ejercicio, name, musculos_p, musculos_s, material,
             ) = fila
 
@@ -272,6 +276,7 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
                     "id_rutina_ejercicio": id_rutina_ejercicio,
                     "orden": orden,
                     "grupo_superset": grupo_superset,
+                    "tiempo_descanso": tiempo_descanso,
                     "id_ejercicio": id_ejercicio,
                     "name": name,
                     "musculos_principales": musculos_p,
@@ -325,6 +330,7 @@ def obtener_dias_rutina_service(id_rutina: int) -> list[dict]:
                 re.id_rutina_ejercicio,
                 re.orden,
                 re.grupo_superset,
+                re.tiempo_descanso,
                 e.id_ejercicio,
                 e.name,
                 e.musculos_principales,
@@ -344,7 +350,7 @@ def obtener_dias_rutina_service(id_rutina: int) -> list[dict]:
         for fila in filas:
             (
                 id_rutina_dia, nombre_dia,
-                id_rutina_ejercicio, orden, grupo_superset,
+                id_rutina_ejercicio, orden, grupo_superset, tiempo_descanso,
                 id_ejercicio, name, musculos_p, musculos_s, material,
             ) = fila
 
@@ -360,6 +366,7 @@ def obtener_dias_rutina_service(id_rutina: int) -> list[dict]:
                     "id_rutina_ejercicio": id_rutina_ejercicio,
                     "orden": orden,
                     "grupo_superset": grupo_superset,
+                    "tiempo_descanso": tiempo_descanso,
                     "id_ejercicio": id_ejercicio,
                     "name": name,
                     "musculos_principales": musculos_p,
@@ -414,3 +421,36 @@ def eliminar_rutina_service(id_rutina: int) -> dict:
     finally:
         if conn:
             release_connection(conn)
+
+def actualizar_descanso_rutina_ejercicio_service(id_rutina_ejercicio: int, tiempo_descanso: int) -> dict:
+    conn = None
+    try:
+        conn = _get_conn()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "UPDATE rutina_ejercicio SET tiempo_descanso = %s WHERE id_rutina_ejercicio = %s RETURNING id_rutina_ejercicio",
+            (tiempo_descanso, id_rutina_ejercicio)
+        )
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No se encontró la rutina_ejercicio con ID {id_rutina_ejercicio}"
+            )
+        conn.commit()
+        return {"status": "success", "tiempo_descanso": tiempo_descanso}
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al actualizar el tiempo de descanso: {str(e)}",
+        )
+    finally:
+        if conn:
+            release_connection(conn)
+

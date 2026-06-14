@@ -140,6 +140,14 @@ class ApiService {
     return ProgressEntry.fromJson(data);
   }
 
+  Future<void> actualizarTiempoDescanso(int idRutinaEjercicio, int segundos) async {
+    await _request(
+      'PUT', 
+      '/rutina_ejercicio/$idRutinaEjercicio/descanso', 
+      body: {'tiempo_descanso': segundos}
+    );
+  }
+
   Future<CoachRecommendation> getCoachRecommendation(int idUsuario) async {
     final data = await _request('GET', '/coach/recomendaciones', queryParameters: {'id_usuario': idUsuario.toString()});
     return CoachRecommendation.fromJson(data);
@@ -237,6 +245,15 @@ class ApiService {
         'tipo_serie': tipoSerie,
         if (idSeriePadre != null) 'id_serie_padre': idSeriePadre,
       },
+    );
+  }
+
+  /// Envía el lote completo de un entrenamiento finalizado al backend
+  Future<Map<String, dynamic>> finalizarEntrenamientoLote(int userId, Map<String, dynamic> payload) async {
+    return _request(
+      'POST',
+      '/usuarios/$userId/entrenamientos/finalizar_lote',
+      body: payload,
     );
   }
 

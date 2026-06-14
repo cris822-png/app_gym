@@ -9,6 +9,8 @@ class EjercicioEntrenoModel {
   final String? musculosPrincipales;
   final String? material;
   final String? grupoSuperset;
+  final int? idRutinaEjercicio;
+  int? tiempoDescanso; // en segundos
 
   /// id devuelto por POST /api/usuarios/{id}/entrenamientos/iniciar
   /// Null hasta que se haya creado el registro en la DB.
@@ -22,6 +24,8 @@ class EjercicioEntrenoModel {
     this.musculosPrincipales,
     this.material,
     this.grupoSuperset,
+    this.idRutinaEjercicio,
+    this.tiempoDescanso,
     this.idEntrenamiento,
     List<SerieModel>? series,
   }) : series = series ?? _defaultSeries();
@@ -51,6 +55,8 @@ class EjercicioEntrenoModel {
     String? musculosPrincipales,
     String? material,
     String? grupoSuperset,
+    int? idRutinaEjercicio,
+    int? tiempoDescanso,
     required List<Map<String, dynamic>> seriesAnteriores,
   }) {
     final numSeries = seriesAnteriores.isNotEmpty ? seriesAnteriores.length : 3;
@@ -60,6 +66,8 @@ class EjercicioEntrenoModel {
       musculosPrincipales: musculosPrincipales,
       material: material,
       grupoSuperset: grupoSuperset,
+      idRutinaEjercicio: idRutinaEjercicio,
+      tiempoDescanso: tiempoDescanso,
       series: List.generate(numSeries, (i) {
         final ant = i < seriesAnteriores.length ? seriesAnteriores[i] : null;
         return SerieModel(
@@ -74,4 +82,33 @@ class EjercicioEntrenoModel {
   int get seriesCompletadas => series.where((s) => s.completada).length;
   bool get todasCompletadas => series.isNotEmpty && seriesCompletadas == series.length;
   double get progresoFraccion => series.isEmpty ? 0 : seriesCompletadas / series.length;
+
+  Map<String, dynamic> toJson() => {
+        'idEjercicio': idEjercicio,
+        'nombre': nombre,
+        'musculosPrincipales': musculosPrincipales,
+        'material': material,
+        'grupoSuperset': grupoSuperset,
+        'idRutinaEjercicio': idRutinaEjercicio,
+        'tiempoDescanso': tiempoDescanso,
+        'idEntrenamiento': idEntrenamiento,
+        'series': series.map((s) => s.toJson()).toList(),
+      };
+
+  factory EjercicioEntrenoModel.fromJson(Map<String, dynamic> json) {
+    return EjercicioEntrenoModel(
+      idEjercicio: json['idEjercicio'] as int,
+      nombre: json['nombre'] as String,
+      musculosPrincipales: json['musculosPrincipales'] as String?,
+      material: json['material'] as String?,
+      grupoSuperset: json['grupoSuperset'] as String?,
+      idRutinaEjercicio: json['idRutinaEjercicio'] as int?,
+      tiempoDescanso: json['tiempoDescanso'] as int?,
+      idEntrenamiento: json['idEntrenamiento'] as int?,
+      series: (json['series'] as List<dynamic>?)
+              ?.map((s) => SerieModel.fromJson(s as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
 }

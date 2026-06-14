@@ -4,7 +4,7 @@ class Ejercicio {
   final String musculosPrincipales;
   final String? musculosSecundarios;
   final String? material;
-  final String? tiempoDescanso;
+  final int? descansoDefaultSeg;
 
   Ejercicio({
     required this.idEjercicio,
@@ -12,7 +12,7 @@ class Ejercicio {
     required this.musculosPrincipales,
     this.musculosSecundarios,
     this.material,
-    this.tiempoDescanso,
+    this.descansoDefaultSeg,
   });
 
   factory Ejercicio.fromJson(Map<String, dynamic> json) {
@@ -22,7 +22,7 @@ class Ejercicio {
       musculosPrincipales: json['musculos_principales'] as String,
       musculosSecundarios: json['musculos_secundarios'] as String?,
       material: json['material'] as String?,
-      tiempoDescanso: json['tiempo_descanso'] as String?,
+      descansoDefaultSeg: json['descanso_default_seg'] as int?,
     );
   }
 }

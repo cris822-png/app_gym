@@ -43,4 +43,33 @@ class SerieModel {
     }
     return '— × —';
   }
+
+  Map<String, dynamic> toJson() => {
+        'numero': numero,
+        'peso': peso,
+        'reps': reps,
+        'completada': completada,
+        'tipoSerie': tipoSerie,
+        'idSerie': idSerie,
+        'pesoAnterior': pesoAnterior,
+        'repsAnterior': repsAnterior,
+        'dropSets': dropSets.map((d) => d.toJson()).toList(),
+      };
+
+  factory SerieModel.fromJson(Map<String, dynamic> json) {
+    return SerieModel(
+      numero: json['numero'] as int,
+      peso: (json['peso'] as num).toDouble(),
+      reps: json['reps'] as int,
+      completada: json['completada'] as bool? ?? false,
+      tipoSerie: json['tipoSerie'] as String? ?? 'normal',
+      idSerie: json['idSerie'] as int?,
+      pesoAnterior: (json['pesoAnterior'] as num?)?.toDouble(),
+      repsAnterior: json['repsAnterior'] as int?,
+      dropSets: (json['dropSets'] as List<dynamic>?)
+              ?.map((d) => SerieModel.fromJson(d as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
 }

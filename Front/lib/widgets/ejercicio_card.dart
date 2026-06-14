@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../models/ejercicio_entreno_model.dart';
+import '../providers/workout_provider.dart';
 import 'serie_row.dart';
 
 /// Tarjeta de ejercicio en la pantalla de entreno activo.
@@ -10,8 +12,11 @@ class EjercicioCard extends StatelessWidget {
   final int index;
   final VoidCallback onAgregarSerie;
   final Function(int idxSerie, double peso, int reps) onSerieCompletada;
+  final Function(int idxSerie, double peso, int reps)? onValorCambiado;
   final Function(int idxSerie, int idxDrop, double peso, int reps)?
       onDropSetCompletado;
+  final Function(int idxSerie, int idxDrop, double peso, int reps)?
+      onDropSetValorCambiado;
   final Function(int idxSerie)? onAgregarDropSet;
   final Function(int idxSerie, String tipo)? onCambiarTipoSerie;
 
@@ -21,7 +26,9 @@ class EjercicioCard extends StatelessWidget {
     required this.index,
     required this.onAgregarSerie,
     required this.onSerieCompletada,
+    this.onValorCambiado,
     this.onDropSetCompletado,
+    this.onDropSetValorCambiado,
     this.onAgregarDropSet,
     this.onCambiarTipoSerie,
   });
@@ -81,7 +88,84 @@ class EjercicioCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                // ── Indicador de descanso base ────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Material(
+                    color: AppColors.bg3,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () async {
+                        final currentSecs = ejercicio.tiempoDescanso ?? 90;
+                        final textCtrl = TextEditingController(text: currentSecs.toString());
+                        final secs = await showDialog<int>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: AppColors.bg2,
+                            title: const Text('Descanso Base', style: TextStyle(color: AppColors.textPrimary)),
+                            content: TextField(
+                              controller: textCtrl,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: AppColors.textPrimary),
+                              decoration: const InputDecoration(
+                                hintText: 'Segundos',
+                                hintStyle: TextStyle(color: AppColors.textMuted),
+                                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.divider)),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.accentBlue)),
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancelar', style: TextStyle(color: AppColors.textMuted)),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  final val = int.tryParse(textCtrl.text);
+                                  if (val != null && val >= 0) {
+                                    Navigator.pop(ctx, val);
+                                  }
+                                },
+                                child: const Text('Guardar', style: TextStyle(color: AppColors.accentBlue)),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (secs != null && context.mounted) {
+                          // Solo lo guarda en base de datos si tiene idRutinaEjercicio válido (rutinas nuevas),
+                          // pero lo actualiza localmente en la sesión igual.
+                          if (ejercicio.idRutinaEjercicio != null) {
+                            context.read<WorkoutProvider>().cambiarTiempoDescansoBase(ejercicio.idRutinaEjercicio!, secs);
+                          } else {
+                            ejercicio.tiempoDescanso = secs;
+                            // Forzamos un rebuild manual o podríamos requerir un método genérico.
+                            // Para el caso de rutinas "viejas" sin idRutinaEjercicio, actualizarlo visualmente.
+                          }
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.timer_outlined, size: 14, color: AppColors.textMuted),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${ejercicio.tiempoDescanso ?? 90}s',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 // Badge progreso series
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
@@ -175,6 +259,8 @@ class EjercicioCard extends StatelessWidget {
                   serie: serie,
                   onCompleted: (peso, reps) =>
                       onSerieCompletada(idxSerie, peso, reps),
+                  onValueChanged: (peso, reps) =>
+                      onValorCambiado?.call(idxSerie, peso, reps),
                   onAgregarDropSet: onAgregarDropSet != null
                       ? () => onAgregarDropSet!(idxSerie)
                       : null,
@@ -191,6 +277,8 @@ class EjercicioCard extends StatelessWidget {
                         '${ejercicio.idEjercicio}_serie_${idxSerie}_drop_$idxDrop'),
                     serie: drop,
                     onCompleted: (peso, reps) => onDropSetCompletado?.call(
+                        idxSerie, idxDrop, peso, reps),
+                    onValueChanged: (peso, reps) => onDropSetValorCambiado?.call(
                         idxSerie, idxDrop, peso, reps),
                   );
                 }),

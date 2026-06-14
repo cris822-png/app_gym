@@ -15,6 +15,7 @@ import '../models/serie_model.dart';
 class SerieRow extends StatefulWidget {
   final SerieModel serie;
   final Function(double peso, int reps) onCompleted;
+  final Function(double peso, int reps)? onValueChanged;
   final VoidCallback? onAgregarDropSet;
   final Function(String tipo)? onCambiarTipo;
 
@@ -22,6 +23,7 @@ class SerieRow extends StatefulWidget {
     super.key,
     required this.serie,
     required this.onCompleted,
+    this.onValueChanged,
     this.onAgregarDropSet,
     this.onCambiarTipo,
   });
@@ -43,6 +45,14 @@ class _SerieRowState extends State<SerieRow> {
     _repsCtrl = TextEditingController(
       text: widget.serie.reps > 0 ? '${widget.serie.reps}' : '',
     );
+    _pesoCtrl.addListener(_notifyValueChange);
+    _repsCtrl.addListener(_notifyValueChange);
+  }
+
+  void _notifyValueChange() {
+    final peso = double.tryParse(_pesoCtrl.text) ?? 0;
+    final reps = int.tryParse(_repsCtrl.text) ?? 0;
+    widget.onValueChanged?.call(peso, reps);
   }
 
   @override
@@ -58,7 +68,7 @@ class _SerieRowState extends State<SerieRow> {
   void _onCheck() {
     final peso = double.tryParse(_pesoCtrl.text) ?? 0;
     final reps = int.tryParse(_repsCtrl.text) ?? 0;
-    if (peso <= 0 || reps <= 0) {
+    if (!widget.serie.completada && (peso <= 0 || reps <= 0)) {
       HapticFeedback.heavyImpact();
       return;
     }
@@ -219,7 +229,7 @@ class _SerieRowState extends State<SerieRow> {
               controller: _pesoCtrl,
               label: 'kg',
               step: 2.5,
-              enabled: !completada,
+              enabled: true,
             ),
 
             const SizedBox(width: 6),
@@ -229,7 +239,7 @@ class _SerieRowState extends State<SerieRow> {
               controller: _repsCtrl,
               label: 'reps',
               step: 1,
-              enabled: !completada,
+              enabled: true,
               isInt: true,
             ),
 
@@ -238,7 +248,7 @@ class _SerieRowState extends State<SerieRow> {
             // ── Check Button ──────────────────────────────────────────────────
             _CheckButton(
               completada: completada,
-              onTap: completada ? null : _onCheck,
+              onTap: _onCheck,
             ),
           ],
         ),

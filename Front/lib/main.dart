@@ -3,8 +3,12 @@ import 'package:flutter/services.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/main_app.dart';
 
+import 'services/notification_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await NotificationService().init();
 
   // Bloquear orientación en vertical
   await SystemChrome.setPreferredOrientations([

@@ -34,6 +34,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() {
     super.initState();
     _cargarDatos();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<WorkoutProvider>().restaurarDeCache();
+    });
   }
 
   Future<void> _cargarDatos() async {
@@ -134,13 +137,41 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 : Text('Entreno',
                     style: Theme.of(context).textTheme.titleLarge),
             actions: [
-              if (provider.activo)
                 TextButton(
-                  onPressed: () {
-                    provider.detenerEntreno();
-                    provider.resetEntreno();
+                  onPressed: () async {
+                    final provider = context.read<WorkoutProvider>();
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: AppColors.bg2,
+                        title: const Text('Finalizar Entreno', style: TextStyle(color: AppColors.textPrimary)),
+                        content: const Text('¿Guardar y finalizar el entrenamiento actual?', style: TextStyle(color: AppColors.textSecondary)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancelar', style: TextStyle(color: AppColors.textMuted)),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Finalizar', style: TextStyle(color: AppColors.accentOrange)),
+                          ),
+                        ],
+                      ),
+                    );
+                    
+                    if (confirm == true) {
+                      final success = await provider.finalizarEntrenamientoLote();
+                      if (success && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Entrenamiento guardado con éxito'), backgroundColor: AppColors.accentGreen),
+                        );
+                        // Redirect or just let the view change back to selector
+                      }
+                    }
                   },
-                  child: const Text('Finalizar',
+                  child: provider.loading 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentOrange))
+                    : const Text('Finalizar',
                       style: TextStyle(
                           color: AppColors.accentOrange,
                           fontWeight: FontWeight.w600)),
@@ -187,8 +218,196 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       color: Colors.white, size: 22),
                 )
               : null,
+          
+          bottomNavigationBar: provider.isResting
+              ? _RestTimerBottomBar(provider: provider)
+              : null,
         );
       },
+    );
+  }
+}
+
+// ── Widget: Barra Inferior de Descanso ────────────────────────────────────
+
+class _RestTimerBottomBar extends StatelessWidget {
+  final WorkoutProvider provider;
+
+  const _RestTimerBottomBar({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final m = provider.restSecondsRemaining ~/ 60;
+    final s = provider.restSecondsRemaining % 60;
+    final timeStr = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bg3,
+        border: const Border(top: BorderSide(color: AppColors.divider)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Descanso',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    if (provider.currentRestEjercicioId == null) return;
+                    
+                    final textCtrl = TextEditingController();
+                    final secs = await showDialog<int>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: AppColors.bg2,
+                        title: const Text('Editar Descanso Base', style: TextStyle(color: AppColors.textPrimary)),
+                        content: TextField(
+                          controller: textCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: AppColors.textPrimary),
+                          decoration: const InputDecoration(
+                            hintText: 'Segundos (ej. 90)',
+                            hintStyle: TextStyle(color: AppColors.textMuted),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.divider)),
+                            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.accentBlue)),
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancelar', style: TextStyle(color: AppColors.textMuted)),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              final val = int.tryParse(textCtrl.text);
+                              if (val != null && val >= 0) {
+                                Navigator.pop(ctx, val);
+                              }
+                            },
+                            child: const Text('Guardar', style: TextStyle(color: AppColors.accentBlue)),
+                          ),
+                        ],
+                      )
+                    );
+                    
+                    if (secs != null) {
+                      provider.cambiarTiempoDescansoBase(provider.currentRestEjercicioId!, secs);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Descanso base actualizado'), backgroundColor: AppColors.accentGreen)
+                      );
+                    }
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        timeStr,
+                        style: const TextStyle(
+                          color: AppColors.accentGreen,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.edit, size: 14, color: AppColors.textMuted),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                _TimerBtn(
+                  icon: Icons.remove,
+                  label: '-30s',
+                  onTap: () => provider.modifyRestTimer(-30),
+                ),
+                const SizedBox(width: 8),
+                _TimerBtn(
+                  icon: Icons.add,
+                  label: '+30s',
+                  onTap: () => provider.modifyRestTimer(30),
+                ),
+                const SizedBox(width: 8),
+                _TimerBtn(
+                  icon: Icons.skip_next,
+                  label: 'Saltar',
+                  onTap: () => provider.skipRestTimer(),
+                  isPrimary: true,
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimerBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  const _TimerBtn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isPrimary ? AppColors.accentOrange.withValues(alpha: 0.2) : AppColors.bg2,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isPrimary ? AppColors.accentOrange : AppColors.textPrimary,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isPrimary ? AppColors.accentOrange : AppColors.textSecondary,
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

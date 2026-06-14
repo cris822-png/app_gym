@@ -17,6 +17,7 @@ from main.schemas import (
     CrearUsuarioRequest,
     LoginRequest,
     ActualizarUsuarioRequest,
+    ActualizarDescansoRequest,
     CrearProgresoRequest,
     CrearRutinaRequest,
     CrearEjercicioRequest,
@@ -26,6 +27,7 @@ from main.schemas import (
     # Schemas para registro en tiempo real
     IniciarEntrenamientoRequest,
     RegistrarSerieRequest,
+    FinalizarEntrenamientoLoteRequest,
     ChatIaRequest,
     # Schemas para registro nutricional manual
     RegistroNutricionRequest,
@@ -46,6 +48,7 @@ from services.rutinas import (
     obtener_rutinas_usuario_service,
     obtener_dias_rutina_service,
     eliminar_rutina_service,
+    actualizar_descanso_rutina_ejercicio_service,
 )
 from services.ejercicios import crear_ejercicio_service, obtener_ejercicios_service
 from services.nutricion import crear_nutricion_service, obtener_nutricion_usuario_service
@@ -58,6 +61,7 @@ from services.entrenamiento import (
     iniciar_entrenamiento_service,
     obtener_ultimo_registro_ejercicio_service,
     registrar_serie_service,
+    finalizar_lote_service,
 )
 from services.coach import generar_recomendacion_coach_service, chat_ia_service
 from utils.responses import standarize_response, custom_validation_exception_handler
@@ -163,6 +167,13 @@ async def obtener_dias_rutina(id_rutina: int):
 async def eliminar_rutina(id_rutina: int):
     """Elimina una rutina y todos sus dependientes por ON DELETE CASCADE."""
     return eliminar_rutina_service(id_rutina)
+
+
+@app.put("/api/rutina_ejercicio/{id_rutina_ejercicio}/descanso")
+@standarize_response
+async def actualizar_descanso_rutina_ejercicio(id_rutina_ejercicio: int, request: ActualizarDescansoRequest):
+    """Actualiza el tiempo de descanso específico de un ejercicio dentro de una rutina."""
+    return actualizar_descanso_rutina_ejercicio_service(id_rutina_ejercicio, request.tiempo_descanso)
 
 
 @app.post("/api/ejercicios", status_code=status.HTTP_201_CREATED)
@@ -287,15 +298,21 @@ async def obtener_ultimo_registro(id_usuario: int, id_ejercicio: int):
 
 @app.post("/api/entrenamientos/{id_entrenamiento}/series", status_code=status.HTTP_201_CREATED)
 @standarize_response
-async def registrar_serie(id_entrenamiento: int, serie: RegistrarSerieRequest):
-    """Registra una serie individual al presionar el botón Check ✓ en la app."""
+async def registrar_serie(id_entrenamiento: int, request: RegistrarSerieRequest):
     return registrar_serie_service(
-        id_entrenamiento,
-        serie.peso,
-        serie.reps,
-        tipo_serie=serie.tipo_serie,
-        id_serie_padre=serie.id_serie_padre,
+        id_entrenamiento=id_entrenamiento,
+        peso=request.peso,
+        reps=request.reps,
+        tipo_serie=request.tipo_serie,
+        id_serie_padre=request.id_serie_padre,
     )
+
+
+@app.post("/api/usuarios/{id_usuario}/entrenamientos/finalizar_lote", status_code=status.HTTP_201_CREATED)
+@standarize_response
+async def finalizar_entrenamiento_lote(id_usuario: int, request: FinalizarEntrenamientoLoteRequest):
+    """Guarda todas las series completadas de un entrenamiento activo desde la caché del frontend en una sola transacción."""
+    return finalizar_lote_service(id_usuario, request.model_dump())
 
 
 @app.post("/api/usuarios/{id_usuario}/chat-ia")

@@ -69,12 +69,20 @@ class RutinaResponse(BaseModel):
     fecha: date
 
 
+class ActualizarRutinaRequest(BaseModel):
+    name_rutina: str = Field(..., min_length=1, max_length=100)
+
+
+class ActualizarDescansoRequest(BaseModel):
+    tiempo_descanso: int = Field(..., ge=0, description="Tiempo de descanso en segundos")
+
+
 class CrearEjercicioRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Nombre del ejercicio")
     musculos_principales: str = Field(..., min_length=1, description="Músculos principales")
     musculos_secundarios: Optional[str] = Field(None, description="Músculos secundarios")
     material: Optional[str] = Field(None, description="Material requerido")
-    tiempo_descanso: Optional[str] = Field(None, description="Tiempo de descanso recomendado")
+    descanso_default_seg: Optional[int] = Field(None, description="Tiempo de descanso recomendado en segundos")
 
 
 class EjercicioResponse(BaseModel):
@@ -83,7 +91,7 @@ class EjercicioResponse(BaseModel):
     musculos_principales: str
     musculos_secundarios: Optional[str]
     material: Optional[str]
-    tiempo_descanso: Optional[str]
+    descanso_default_seg: Optional[int]
 
 
 class CrearNutricionRequest(BaseModel):
@@ -185,7 +193,28 @@ class RegistrarSerieRequest(BaseModel):
     id_serie_padre: Optional[int] = Field(None, description="ID de la serie principal (solo para drop_set)")
 
 
+class BatchSerieDropSetPayload(BaseModel):
+    peso: float = Field(..., gt=0)
+    reps: int = Field(..., gt=0)
+    tipo_serie: str = Field('drop_set')
 
+
+class BatchSeriePayload(BaseModel):
+    peso: float = Field(..., gt=0)
+    reps: int = Field(..., gt=0)
+    tipo_serie: str = Field('normal')
+    drop_sets: List[BatchSerieDropSetPayload] = Field(default_factory=list)
+
+
+class BatchEjercicioPayload(BaseModel):
+    id_ejercicio: int = Field(..., gt=0)
+    series: List[BatchSeriePayload] = Field(..., min_length=1)
+
+
+class FinalizarEntrenamientoLoteRequest(BaseModel):
+    fecha: datetime = Field(..., description="Fecha de inicio o finalización")
+    id_rutina: Optional[int] = Field(None, description="ID de la rutina si es guiada")
+    ejercicios: List[BatchEjercicioPayload] = Field(..., min_length=1)
 class ChatIaRequest(BaseModel):
     """Envía un mensaje al coach IA junto al contexto del entreno activo."""
     mensaje: str  = Field(..., min_length=1, max_length=2000, description="Mensaje del usuario")
