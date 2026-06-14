@@ -8,6 +8,7 @@ class EjercicioEntrenoModel {
   final String nombre;
   final String? musculosPrincipales;
   final String? material;
+  final String? grupoSuperset;
 
   /// id devuelto por POST /api/usuarios/{id}/entrenamientos/iniciar
   /// Null hasta que se haya creado el registro en la DB.
@@ -20,6 +21,7 @@ class EjercicioEntrenoModel {
     required this.nombre,
     this.musculosPrincipales,
     this.material,
+    this.grupoSuperset,
     this.idEntrenamiento,
     List<SerieModel>? series,
   }) : series = series ?? _defaultSeries();
@@ -48,6 +50,7 @@ class EjercicioEntrenoModel {
     required String nombre,
     String? musculosPrincipales,
     String? material,
+    String? grupoSuperset,
     required List<Map<String, dynamic>> seriesAnteriores,
   }) {
     final numSeries = seriesAnteriores.isNotEmpty ? seriesAnteriores.length : 3;
@@ -56,6 +59,7 @@ class EjercicioEntrenoModel {
       nombre: nombre,
       musculosPrincipales: musculosPrincipales,
       material: material,
+      grupoSuperset: grupoSuperset,
       series: List.generate(numSeries, (i) {
         final ant = i < seriesAnteriores.length ? seriesAnteriores[i] : null;
         return SerieModel(

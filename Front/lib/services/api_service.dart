@@ -220,15 +220,23 @@ class ApiService {
   }
 
   /// Registra una serie individual al presionar Check ✓.
-  Future<void> registrarSerie({
+  /// Devuelve el Map completo de respuesta (incluye id_serie).
+  Future<Map<String, dynamic>> registrarSerie({
     required int idEntrenamiento,
     required double peso,
     required int reps,
+    String tipoSerie = 'normal',
+    int? idSeriePadre,
   }) async {
-    await _request(
+    return _request(
       'POST',
       '/entrenamientos/$idEntrenamiento/series',
-      body: {'peso': peso, 'reps': reps},
+      body: {
+        'peso': peso,
+        'reps': reps,
+        'tipo_serie': tipoSerie,
+        if (idSeriePadre != null) 'id_serie_padre': idSeriePadre,
+      },
     );
   }
 

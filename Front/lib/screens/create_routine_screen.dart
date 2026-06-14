@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 /// Ejercicio añadido a un día concreto de la rutina.
 class _EjEnDia {
   final Ejercicio ejercicio;
+  String? grupoSuperset; // ej. 'A', 'B', null = sin superset
   _EjEnDia(this.ejercicio);
 }
 
@@ -183,6 +184,7 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
               return EjercicioDiaDto(
                 idEjercicio: e.value.ejercicio.idEjercicio,
                 orden: e.key + 1,
+                grupoSuperset: e.value.grupoSuperset,
               );
             }).toList(),
           );
@@ -497,11 +499,50 @@ class _DiaBlock extends StatelessWidget {
                   style: const TextStyle(
                       color: AppColors.textMuted, fontSize: 12),
                 ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.remove_circle_outline,
-                      color: AppColors.textMuted, size: 18),
-                  onPressed: () => onEliminarEjercicio(idxEj),
-                  tooltip: 'Quitar ejercicio',
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Chip de grupo superset
+                    GestureDetector(
+                      onTap: () => _mostrarSelectorGrupo(context, entry.value),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: entry.value.grupoSuperset != null
+                              ? AppColors.accentPurple.withValues(alpha: 0.2)
+                              : AppColors.bg3,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: entry.value.grupoSuperset != null
+                                ? AppColors.accentPurple.withValues(alpha: 0.6)
+                                : AppColors.bg3,
+                          ),
+                        ),
+                        child: Text(
+                          entry.value.grupoSuperset != null
+                              ? 'SS: ${entry.value.grupoSuperset}'
+                              : 'SS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: entry.value.grupoSuperset != null
+                                ? AppColors.accentPurple
+                                : AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.close,
+                          color: AppColors.accentOrange, size: 18),
+                      onPressed: () => onEliminarEjercicio(idxEj),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
               );
             }),
@@ -538,7 +579,115 @@ class _DiaBlock extends StatelessWidget {
       ),
     );
   }
+
+  void _mostrarSelectorGrupo(BuildContext context, _EjEnDia ejEnDia) {
+    final grupos = ['A', 'B', 'C', 'D', 'E'];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.bg2,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                          color: AppColors.bg3,
+                          borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Grupo de Súper Serie',
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Ejercicios con el mismo grupo se ejecutan sin descanso entre sí.',
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      ...grupos.map((g) {
+                        final selected = ejEnDia.grupoSuperset == g;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              ejEnDia.grupoSuperset = selected ? null : g;
+                              setModalState(() {});
+                              (context as Element).markNeedsBuild();
+                              Navigator.pop(ctx);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? AppColors.accentPurple
+                                    : AppColors.bg3,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: selected
+                                      ? AppColors.accentPurple
+                                      : AppColors.bg3,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  g,
+                                  style: TextStyle(
+                                    color: selected
+                                        ? Colors.white
+                                        : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      const Spacer(),
+                      if (ejEnDia.grupoSuperset != null)
+                        TextButton(
+                          onPressed: () {
+                            ejEnDia.grupoSuperset = null;
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text('Quitar',
+                              style:
+                                  TextStyle(color: AppColors.accentOrange)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Widget: campo editable de nombre de día con sugerencias

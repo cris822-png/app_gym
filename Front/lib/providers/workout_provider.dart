@@ -102,6 +102,7 @@ class WorkoutProvider extends ChangeNotifier {
           nombre: ej['name'] as String? ?? 'Ejercicio',
           musculosPrincipales: ej['musculos_principales'] as String?,
           material: ej['material'] as String?,
+          grupoSuperset: ej['grupo_superset'] as String?,
           seriesAnteriores: anteriores,
         );
       });
@@ -132,6 +133,7 @@ class WorkoutProvider extends ChangeNotifier {
       nombre: ejData['name'] as String? ?? 'Ejercicio',
       musculosPrincipales: ejData['musculos_principales'] as String?,
       material: ejData['material'] as String?,
+      grupoSuperset: ejData['grupo_superset'] as String?,
       seriesAnteriores: anteriores,
     ));
     notifyListeners();
@@ -139,26 +141,43 @@ class WorkoutProvider extends ChangeNotifier {
 
   // ── Gestión de series ────────────────────────────────────────────────────
 
-  void agregarSerie(int idxEjercicio) {
+  void agregarSerie(int idxEjercicio, {String tipoSerie = 'normal'}) {
     final ej = _ejercicios[idxEjercicio];
-    final numNueva = ej.series.length + 1;
-    // El placeholder de la serie nueva usa el registro previo si existe
-    final ant = numNueva <= (ej.series
-            .where((s) => s.pesoAnterior != null)
-            .length)
-        ? ej.series[numNueva - 1]
+    // Contar solo series no-drop_set para el número de serie
+    final numNormales = ej.series.where((s) => !s.esDropSet).length;
+    final ant = numNormales < ej.series.where((s) => s.pesoAnterior != null && !s.esDropSet).length
+        ? ej.series.where((s) => !s.esDropSet).elementAt(numNormales)
         : null;
     ej.series.add(SerieModel(
-      numero: numNueva,
+      numero: numNormales + 1,
+      tipoSerie: tipoSerie,
       pesoAnterior: ant?.pesoAnterior,
       repsAnterior: ant?.repsAnterior,
     ));
     notifyListeners();
   }
 
+  /// Añade un Drop Set justo después de la serie padre (idxSerie).
+  void agregarDropSet(int idxEjercicio, int idxSerie) {
+    final ej = _ejercicios[idxEjercicio];
+    final seriePadre = ej.series[idxSerie];
+    seriePadre.dropSets.add(SerieModel(
+      numero: seriePadre.dropSets.length + 1,
+      tipoSerie: 'drop_set',
+    ));
+    notifyListeners();
+  }
+
+  /// Cambia el tipo de una serie (normal ↔ calentamiento).
+  void cambiarTipoSerie(int idxEjercicio, int idxSerie, String nuevoTipo) {
+    _ejercicios[idxEjercicio].series[idxSerie].tipoSerie = nuevoTipo;
+    notifyListeners();
+  }
+
   /// Marca la serie como completada y la persiste en la DB.
   Future<void> completarSerie(
-      int idxEjercicio, int idxSerie, double peso, int reps) async {
+      int idxEjercicio, int idxSerie, double peso, int reps,
+      {bool esDropSet = false, int? idSeriePadre}) async {
     final ej = _ejercicios[idxEjercicio];
     final serie = ej.series[idxSerie];
 
@@ -182,14 +201,50 @@ class WorkoutProvider extends ChangeNotifier {
 
     // Persistir la serie en la DB
     try {
-      await _api.registrarSerie(
+      final resp = await _api.registrarSerie(
         idEntrenamiento: ej.idEntrenamiento!,
         peso: peso,
         reps: reps,
+        tipoSerie: serie.tipoSerie,
+        idSeriePadre: idSeriePadre,
       );
+      serie.idSerie = resp['id_serie'] as int?;
       serie.completada = true;
     } catch (e) {
       _error = 'Error al guardar serie: $e';
+    }
+
+    notifyListeners();
+  }
+
+  /// Marca un drop set como completado y lo persiste en la DB.
+  Future<void> completarDropSet(
+      int idxEjercicio, int idxSerie, int idxDrop, double peso, int reps) async {
+    final ej = _ejercicios[idxEjercicio];
+    final seriePadre = ej.series[idxSerie];
+    final drop = seriePadre.dropSets[idxDrop];
+
+    drop.peso = peso;
+    drop.reps = reps;
+
+    if (ej.idEntrenamiento == null) {
+      _error = 'El ejercicio no ha sido iniciado';
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final resp = await _api.registrarSerie(
+        idEntrenamiento: ej.idEntrenamiento!,
+        peso: peso,
+        reps: reps,
+        tipoSerie: 'drop_set',
+        idSeriePadre: seriePadre.idSerie,
+      );
+      drop.idSerie = resp['id_serie'] as int?;
+      drop.completada = true;
+    } catch (e) {
+      _error = 'Error al guardar drop set: $e';
     }
 
     notifyListeners();

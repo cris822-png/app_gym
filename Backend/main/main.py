@@ -289,7 +289,13 @@ async def obtener_ultimo_registro(id_usuario: int, id_ejercicio: int):
 @standarize_response
 async def registrar_serie(id_entrenamiento: int, serie: RegistrarSerieRequest):
     """Registra una serie individual al presionar el botón Check ✓ en la app."""
-    return registrar_serie_service(id_entrenamiento, serie.peso, serie.reps)
+    return registrar_serie_service(
+        id_entrenamiento,
+        serie.peso,
+        serie.reps,
+        tipo_serie=serie.tipo_serie,
+        id_serie_padre=serie.id_serie_padre,
+    )
 
 
 @app.post("/api/usuarios/{id_usuario}/chat-ia")

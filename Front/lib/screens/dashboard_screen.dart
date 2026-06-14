@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../models/coach_recommendation.dart';
 import '../models/entrenamiento.dart';
+import '../models/progreso.dart';
 import '../models/registro_nutricion.dart';
 import '../models/usuario.dart';
 import '../services/api_service.dart';
@@ -36,6 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   CoachRecommendation? _recommendation;
   List<RegistroNutricion> _registrosNutricion = [];
   List<Entrenamiento> _entrenamientos = [];
+  List<ProgressEntry> _progreso = [];
 
   @override
   void initState() {
@@ -54,12 +56,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final recommendation = await _apiService.getCoachRecommendation(widget.userId);
       final registros = await _apiService.getRegistrosNutricion(widget.userId);
       final entrenamientos = await _apiService.getEntrenamientos(widget.userId);
+      final progreso = await _apiService.getProgreso(widget.userId);
 
       setState(() {
         _usuario = usuario;
         _recommendation = recommendation;
         _registrosNutricion = registros;
         _entrenamientos = entrenamientos;
+        _progreso = progreso;
       });
     } catch (e) {
       setState(() {
@@ -210,9 +214,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSummaryRow() {
-    final weight = _usuario?.peso != null && _usuario!.peso > 0 
-        ? '${_usuario!.peso.toStringAsFixed(1)} kg' 
-        : 'Sin datos';
+    final latestProgreso = _progreso.isNotEmpty ? _progreso.first : null;
+    final weight = latestProgreso != null && latestProgreso.peso > 0 
+        ? '${latestProgreso.peso.toStringAsFixed(1)} kg' 
+        : (_usuario?.peso != null && _usuario!.peso > 0 
+            ? '${_usuario!.peso.toStringAsFixed(1)} kg' 
+            : 'Sin datos');
         
     final grasa = _usuario?.objetivoPorcentage != null && _usuario!.objetivoPorcentage!.isNotEmpty
         ? '${_usuario!.objetivoPorcentage}' 

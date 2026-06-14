@@ -6,16 +6,24 @@ import '../models/serie_model.dart';
 
 /// Fila horizontal de una serie: Nº | Anterior | Peso | Reps | ✓
 ///
-/// Al presionar Check, la fila muta visualmente a fondo verde translúcido
-/// y dispara [onCompleted] con el peso y reps actuales.
+/// Soporta tres tipos de serie:
+///   - normal      → fondo bg3, número de serie
+///   - calentamiento → borde azul, badge de llama
+///   - drop_set    → sangría izquierda, fondo morado translúcido (rendered by EjercicioCard)
+///
+/// Long-press abre un menú con opciones de tipo de serie.
 class SerieRow extends StatefulWidget {
   final SerieModel serie;
   final Function(double peso, int reps) onCompleted;
+  final VoidCallback? onAgregarDropSet;
+  final Function(String tipo)? onCambiarTipo;
 
   const SerieRow({
     super.key,
     required this.serie,
     required this.onCompleted,
+    this.onAgregarDropSet,
+    this.onCambiarTipo,
   });
 
   @override
@@ -51,94 +59,189 @@ class _SerieRowState extends State<SerieRow> {
     final peso = double.tryParse(_pesoCtrl.text) ?? 0;
     final reps = int.tryParse(_repsCtrl.text) ?? 0;
     if (peso <= 0 || reps <= 0) {
-      // Vibración de error si faltan datos
       HapticFeedback.heavyImpact();
       return;
     }
     widget.onCompleted(peso, reps);
   }
 
+  void _mostrarMenu(BuildContext context) {
+    if (widget.serie.completada) return;
+    final esCalentamiento = widget.serie.esCalentamiento;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.bg2,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                  color: AppColors.bg3,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            ListTile(
+              leading: Icon(
+                esCalentamiento ? Icons.fitness_center : Icons.local_fire_department,
+                color: esCalentamiento ? AppColors.accentBlue : AppColors.accentOrange,
+              ),
+              title: Text(
+                esCalentamiento
+                    ? 'Convertir en serie normal'
+                    : 'Marcar como calentamiento',
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                widget.onCambiarTipo?.call(
+                    esCalentamiento ? 'normal' : 'calentamiento');
+              },
+            ),
+            if (!widget.serie.esDropSet)
+              ListTile(
+                leading: const Icon(Icons.arrow_downward,
+                    color: AppColors.accentPurple),
+                title: const Text('Añadir Drop Set',
+                    style: TextStyle(color: AppColors.textPrimary)),
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onAgregarDropSet?.call();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final completada = widget.serie.completada;
+    final esCalentamiento = widget.serie.esCalentamiento;
+    final esDropSet = widget.serie.esDropSet;
+
+    Color bgColor;
+    Color borderColor;
+    if (completada) {
+      bgColor = AppColors.serieCompletada;
+      borderColor = AppColors.serieCompletadaBorder;
+    } else if (esCalentamiento) {
+      bgColor = AppColors.accentBlue.withValues(alpha: 0.08);
+      borderColor = AppColors.accentBlue.withValues(alpha: 0.4);
+    } else if (esDropSet) {
+      bgColor = AppColors.accentPurple.withValues(alpha: 0.08);
+      borderColor = AppColors.accentPurple.withValues(alpha: 0.3);
+    } else {
+      bgColor = AppColors.bg3;
+      borderColor = Colors.transparent;
+    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
-      margin: const EdgeInsets.symmetric(vertical: 3),
+      margin: EdgeInsets.only(
+        top: 3,
+        bottom: 3,
+        left: esDropSet ? 18 : 0, // sangría para drop sets
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: completada ? AppColors.serieCompletada : AppColors.bg3,
+        color: bgColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: completada
-              ? AppColors.serieCompletadaBorder
-              : Colors.transparent,
-          width: 1,
-        ),
+        border: Border.all(color: borderColor, width: 1),
       ),
       child: Row(
         children: [
-          // ── Nº Serie ─────────────────────────────────────────────────────
-          SizedBox(
-            width: 26,
-            child: Text(
-              '${widget.serie.numero}',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: completada ? AppColors.accentGreen : AppColors.textMuted,
+            // ── Badge Nº / tipo ───────────────────────────────────────────────
+            SizedBox(
+              width: 36,
+              child: InkWell(
+                onTap: completada ? null : () => _mostrarMenu(context),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      esCalentamiento
+                          ? const Icon(Icons.local_fire_department,
+                              color: AppColors.accentOrange, size: 14)
+                          : esDropSet
+                              ? const Icon(Icons.arrow_downward,
+                                  color: AppColors.accentPurple, size: 12)
+                              : Text(
+                                  '${widget.serie.numero}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: completada
+                                        ? AppColors.accentGreen
+                                        : AppColors.textMuted,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                      if (!completada && !esDropSet)
+                        const Icon(Icons.arrow_drop_down,
+                            size: 14, color: AppColors.textMuted),
+                    ],
+                  ),
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
 
-          const SizedBox(width: 6),
+            const SizedBox(width: 6),
 
-          // ── Placeholder anterior ──────────────────────────────────────────
-          Expanded(
-            flex: 2,
-            child: Text(
-              widget.serie.placeholderText,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.placeholder,
-                fontStyle: FontStyle.italic,
+            // ── Placeholder anterior ──────────────────────────────────────────
+            Expanded(
+              flex: 2,
+              child: Text(
+                esDropSet ? 'Drop Set' : widget.serie.placeholderText,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: esDropSet
+                      ? AppColors.accentPurple.withValues(alpha: 0.8)
+                      : AppColors.placeholder,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
 
-          const SizedBox(width: 6),
+            const SizedBox(width: 6),
 
-          // ── Input Peso ────────────────────────────────────────────────────
-          _NumericInput(
-            controller: _pesoCtrl,
-            label: 'kg',
-            step: 2.5,
-            enabled: !completada,
-          ),
+            // ── Input Peso ────────────────────────────────────────────────────
+            _NumericInput(
+              controller: _pesoCtrl,
+              label: 'kg',
+              step: 2.5,
+              enabled: !completada,
+            ),
 
-          const SizedBox(width: 6),
+            const SizedBox(width: 6),
 
-          // ── Input Reps ────────────────────────────────────────────────────
-          _NumericInput(
-            controller: _repsCtrl,
-            label: 'reps',
-            step: 1,
-            enabled: !completada,
-            isInt: true,
-          ),
+            // ── Input Reps ────────────────────────────────────────────────────
+            _NumericInput(
+              controller: _repsCtrl,
+              label: 'reps',
+              step: 1,
+              enabled: !completada,
+              isInt: true,
+            ),
 
-          const SizedBox(width: 6),
+            const SizedBox(width: 6),
 
-          // ── Check Button ──────────────────────────────────────────────────
-          _CheckButton(
-            completada: completada,
-            onTap: completada ? null : _onCheck,
-          ),
-        ],
-      ),
+            // ── Check Button ──────────────────────────────────────────────────
+            _CheckButton(
+              completada: completada,
+              onTap: completada ? null : _onCheck,
+            ),
+          ],
+        ),
     );
   }
 }
@@ -186,8 +289,8 @@ class _NumericInput extends StatelessWidget {
                   controller: controller,
                   enabled: enabled,
                   textAlign: TextAlign.center,
-                  // ⌨️ Solo teclado numérico
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(
                         isInt ? RegExp(r'[0-9]') : RegExp(r'[0-9.]')),
@@ -195,7 +298,8 @@ class _NumericInput extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: enabled ? AppColors.textPrimary : AppColors.textMuted,
+                    color:
+                        enabled ? AppColors.textPrimary : AppColors.textMuted,
                   ),
                   decoration: const InputDecoration(
                     isDense: true,

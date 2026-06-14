@@ -283,11 +283,11 @@ def obtener_ultimo_registro_ejercicio_service(id_usuario: int, id_ejercicio: int
         id_entrenamiento_previo = row[0]
         fecha_sesion = row[1].isoformat() if hasattr(row[1], "isoformat") else str(row[1])
 
-        # 2. Series de esa sesión en orden
+        # 2. Series de esa sesión en orden — excluir drop sets y calentamientos
         cursor.execute("""
             SELECT peso, reps
             FROM series
-            WHERE id_entrenamiento = %s
+            WHERE id_entrenamiento = %s AND (tipo_serie IS NULL OR tipo_serie = 'normal')
             ORDER BY id_serie ASC
         """, (id_entrenamiento_previo,))
 
@@ -312,14 +312,20 @@ def obtener_ultimo_registro_ejercicio_service(id_usuario: int, id_ejercicio: int
             release_connection(conn)
 
 
-def registrar_serie_service(id_entrenamiento: int, peso: float, reps: int) -> dict:
+def registrar_serie_service(
+    id_entrenamiento: int, 
+    peso: float, 
+    reps: int, 
+    tipo_serie: str = 'normal',
+    id_serie_padre: int | None = None,
+) -> dict:
     """
     Inserta UNA sola serie en la tabla `series` inmediatamente al presionar Check ✓.
     Registro en tiempo real — no espera a que termine el entreno.
 
     Tablas:  series (INSERT)
-    FK:      id_entrenamiento → entrenamiento
-    Campos:  peso (numeric 6,2), reps (integer), tiempo_descanso (null por defecto)
+    FK:      id_entrenamiento → entrenamiento, id_serie_padre → series (nullable)
+    Campos:  peso, reps, tipo_serie ('normal'|'calentamiento'|'drop_set'), id_serie_padre
     """
     conn = None
     try:
@@ -348,10 +354,34 @@ def registrar_serie_service(id_entrenamiento: int, peso: float, reps: int) -> di
                 detail=f"Entrenamiento {id_entrenamiento} no encontrado"
             )
 
+        # Validar que la serie padre existe (si se proporciona)
+        if id_serie_padre is not None:
+            cursor.execute(
+                "SELECT id_serie FROM series WHERE id_serie = %s",
+                (id_serie_padre,)
+            )
+            if not cursor.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Serie padre {id_serie_padre} no encontrada"
+                )
+
+        # Validar tipo_serie
+        tipos_validos = {'normal', 'calentamiento', 'drop_set'}
+        if tipo_serie not in tipos_validos:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"tipo_serie debe ser uno de: {', '.join(tipos_validos)}"
+            )
+
         # Insertar la serie
         cursor.execute(
-            "INSERT INTO series (id_entrenamiento, peso, reps) VALUES (%s, %s, %s) RETURNING id_serie",
-            (id_entrenamiento, peso, reps)
+            """
+            INSERT INTO series (id_entrenamiento, peso, reps, tipo_serie, id_serie_padre)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id_serie
+            """,
+            (id_entrenamiento, peso, reps, tipo_serie, id_serie_padre)
         )
         id_serie = cursor.fetchone()[0]
         conn.commit()
@@ -360,7 +390,9 @@ def registrar_serie_service(id_entrenamiento: int, peso: float, reps: int) -> di
             "id_serie": id_serie,
             "id_entrenamiento": id_entrenamiento,
             "peso": peso,
-            "reps": reps
+            "reps": reps,
+            "tipo_serie": tipo_serie,
+            "id_serie_padre": id_serie_padre,
         }
 
     except HTTPException:

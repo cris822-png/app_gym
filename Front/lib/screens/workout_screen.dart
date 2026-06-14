@@ -634,31 +634,168 @@ class _EntrenoActivoView extends StatelessWidget {
       );
     }
 
+    // Construir grupos de widgets respetando supersets
+    final widgets = _buildEjercicioWidgets(context, provider);
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-      itemCount: provider.ejercicios.length + 1,
+      itemCount: widgets.length + 1,
       itemBuilder: (ctx, i) {
-        if (i == provider.ejercicios.length) {
-          // Botón de añadir ejercicio al final de la lista
+        if (i == widgets.length) {
           return _BotonAgregarEjercicio(
             ejerciciosDisponibles: ejerciciosDisponibles,
             onAgregar: (ej) => provider.agregarEjercicio(ej),
           );
         }
-
-        final ej = provider.ejercicios[i];
-        return EjercicioCard(
-          key: ValueKey(ej.idEjercicio),
-          ejercicio: ej,
-          index: i,
-          onAgregarSerie: () => provider.agregarSerie(i),
-          onSerieCompletada: (idxSerie, peso, reps) =>
-              provider.completarSerie(i, idxSerie, peso, reps),
-        );
+        return widgets[i];
       },
     );
   }
+
+  List<Widget> _buildEjercicioWidgets(
+      BuildContext context, WorkoutProvider provider) {
+    final ejercicios = provider.ejercicios;
+    final List<Widget> result = [];
+    final Set<int> procesados = {};
+
+    for (int i = 0; i < ejercicios.length; i++) {
+      if (procesados.contains(i)) continue;
+      final ej = ejercicios[i];
+
+      if (ej.grupoSuperset != null) {
+        // Recoger todos los índices del mismo grupo
+        final grupo = ej.grupoSuperset!;
+        final indicesGrupo = <int>[];
+        for (int j = i; j < ejercicios.length; j++) {
+          if (ejercicios[j].grupoSuperset == grupo) {
+            indicesGrupo.add(j);
+            procesados.add(j);
+          }
+        }
+
+        result.add(_SupersetCard(
+          grupo: grupo,
+          children: indicesGrupo
+              .map((idx) => _buildEjercicioCard(context, provider, idx))
+              .toList(),
+        ));
+      } else {
+        procesados.add(i);
+        result.add(_buildEjercicioCard(context, provider, i));
+      }
+    }
+    return result;
+  }
+
+  Widget _buildEjercicioCard(
+      BuildContext context, WorkoutProvider provider, int i) {
+    final ej = provider.ejercicios[i];
+    return EjercicioCard(
+      key: ValueKey(ej.idEjercicio),
+      ejercicio: ej,
+      index: i,
+      onAgregarSerie: () => provider.agregarSerie(i),
+      onSerieCompletada: (idxSerie, peso, reps) =>
+          provider.completarSerie(i, idxSerie, peso, reps),
+      onAgregarDropSet: (idxSerie) =>
+          provider.agregarDropSet(i, idxSerie),
+      onDropSetCompletado: (idxSerie, idxDrop, peso, reps) =>
+          provider.completarDropSet(i, idxSerie, idxDrop, peso, reps),
+      onCambiarTipoSerie: (idxSerie, tipo) =>
+          provider.cambiarTipoSerie(i, idxSerie, tipo),
+    );
+  }
 }
+
+// ── Tarjeta visual de Súper Serie ─────────────────────────────────────────────
+
+class _SupersetCard extends StatelessWidget {
+  final String grupo;
+  final List<Widget> children;
+
+  const _SupersetCard({required this.grupo, required this.children});
+
+  // Colores cíclicos por grupo: A=azul, B=verde, C=naranja, D=morado…
+  static const _colores = [
+    AppColors.accentBlue,
+    AppColors.accentGreen,
+    AppColors.accentOrange,
+    AppColors.accentPurple,
+  ];
+
+  Color get _color {
+    final idx = grupo.codeUnitAt(0) % _colores.length;
+    return _colores[idx];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _color;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bg2,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Barra lateral de color
+            Container(
+              width: 5,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(15),
+                  bottomLeft: Radius.circular(15),
+                ),
+              ),
+            ),
+            // Contenido
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10, right: 4, bottom: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Badge SUPERSET
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10, bottom: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'SUPERSET $grupo',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: color,
+                              letterSpacing: 0.8),
+                        ),
+                      ),
+                    ),
+                    // Tarjetas individuales sin margen extra
+                    ...children.map((child) => Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: child,
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 class _AgregarPrimerEjercicio extends StatelessWidget {
   final List<Map<String, dynamic>> ejerciciosDisponibles;

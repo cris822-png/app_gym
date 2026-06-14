@@ -9,6 +9,7 @@ class RutinaEjercicio {
   final String? musculosPrincipales;
   final String? musculosSecundarios;
   final String? material;
+  final String? grupoSuperset;
 
   const RutinaEjercicio({
     required this.idRutinaEjercicio,
@@ -18,6 +19,7 @@ class RutinaEjercicio {
     this.musculosPrincipales,
     this.musculosSecundarios,
     this.material,
+    this.grupoSuperset,
   });
 
   factory RutinaEjercicio.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class RutinaEjercicio {
       musculosPrincipales: json['musculos_principales'] as String?,
       musculosSecundarios: json['musculos_secundarios'] as String?,
       material: json['material'] as String?,
+      grupoSuperset: json['grupo_superset'] as String?,
     );
   }
 
@@ -38,6 +41,7 @@ class RutinaEjercicio {
         'name': name,
         'musculos_principales': musculosPrincipales,
         'material': material,
+        'grupo_superset': grupoSuperset,
       };
 }
 

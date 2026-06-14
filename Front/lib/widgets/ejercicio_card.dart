@@ -4,12 +4,16 @@ import '../models/ejercicio_entreno_model.dart';
 import 'serie_row.dart';
 
 /// Tarjeta de ejercicio en la pantalla de entreno activo.
-/// Muestra thumbnail, nombre, músculos, badge de progreso y las SerieRow.
+/// Soporta series normales, calentamientos y drop sets.
 class EjercicioCard extends StatelessWidget {
   final EjercicioEntrenoModel ejercicio;
   final int index;
   final VoidCallback onAgregarSerie;
   final Function(int idxSerie, double peso, int reps) onSerieCompletada;
+  final Function(int idxSerie, int idxDrop, double peso, int reps)?
+      onDropSetCompletado;
+  final Function(int idxSerie)? onAgregarDropSet;
+  final Function(int idxSerie, String tipo)? onCambiarTipoSerie;
 
   const EjercicioCard({
     super.key,
@@ -17,6 +21,9 @@ class EjercicioCard extends StatelessWidget {
     required this.index,
     required this.onAgregarSerie,
     required this.onSerieCompletada,
+    this.onDropSetCompletado,
+    this.onAgregarDropSet,
+    this.onCambiarTipoSerie,
   });
 
   @override
@@ -44,7 +51,6 @@ class EjercicioCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Thumbnail (placeholder con icono)
                 Container(
                   width: 46,
                   height: 46,
@@ -56,10 +62,7 @@ class EjercicioCard extends StatelessWidget {
                   child: const Icon(Icons.fitness_center,
                       color: AppColors.accentBlue, size: 22),
                 ),
-
                 const SizedBox(width: 12),
-
-                // Nombre y músculos
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,9 +81,7 @@ class EjercicioCard extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
                 // Badge progreso series
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
@@ -114,7 +115,7 @@ class EjercicioCard extends StatelessWidget {
               child: Row(
                 children: const [
                   SizedBox(
-                    width: 26,
+                    width: 36,
                     child: Text('N°',
                         style: TextStyle(
                             fontSize: 9,
@@ -164,20 +165,42 @@ class EjercicioCard extends StatelessWidget {
 
             const SizedBox(height: 6),
 
-            // ── Filas de series ─────────────────────────────────────────────
-            ...ejercicio.series.asMap().entries.map(
-                  (entry) => SerieRow(
-                    key: ValueKey(
-                        '${ejercicio.idEjercicio}_serie_${entry.key}'),
-                    serie: entry.value,
-                    onCompleted: (peso, reps) =>
-                        onSerieCompletada(entry.key, peso, reps),
-                  ),
+            // ── Filas de series con drop sets anidados ──────────────────────
+            ...ejercicio.series.asMap().entries.expand((entry) {
+              final idxSerie = entry.key;
+              final serie = entry.value;
+              return [
+                SerieRow(
+                  key: ValueKey('${ejercicio.idEjercicio}_serie_$idxSerie'),
+                  serie: serie,
+                  onCompleted: (peso, reps) =>
+                      onSerieCompletada(idxSerie, peso, reps),
+                  onAgregarDropSet: onAgregarDropSet != null
+                      ? () => onAgregarDropSet!(idxSerie)
+                      : null,
+                  onCambiarTipo: onCambiarTipoSerie != null
+                      ? (tipo) => onCambiarTipoSerie!(idxSerie, tipo)
+                      : null,
                 ),
+                // Drop sets anidados
+                ...serie.dropSets.asMap().entries.map((dropEntry) {
+                  final idxDrop = dropEntry.key;
+                  final drop = dropEntry.value;
+                  return SerieRow(
+                    key: ValueKey(
+                        '${ejercicio.idEjercicio}_serie_${idxSerie}_drop_$idxDrop'),
+                    serie: drop,
+                    onCompleted: (peso, reps) => onDropSetCompletado?.call(
+                        idxSerie, idxDrop, peso, reps),
+                  );
+                }),
+              ];
+            }),
+
 
             const SizedBox(height: 8),
 
-            // ── Botón Añadir serie (zona del pulgar) ───────────────────────
+            // ── Botón Añadir serie ─────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               child: TextButton.icon(
@@ -190,7 +213,8 @@ class EjercicioCard extends StatelessWidget {
                         fontWeight: FontWeight.w600)),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  backgroundColor: AppColors.accentBlue.withValues(alpha: 0.08),
+                  backgroundColor:
+                      AppColors.accentBlue.withValues(alpha: 0.08),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -202,4 +226,6 @@ class EjercicioCard extends StatelessWidget {
       ),
     );
   }
+
+
 }

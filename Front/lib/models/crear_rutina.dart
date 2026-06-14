@@ -4,12 +4,14 @@
 class EjercicioDiaDto {
   final int idEjercicio;
   final int? orden;
+  final String? grupoSuperset;
 
-  const EjercicioDiaDto({required this.idEjercicio, this.orden});
+  const EjercicioDiaDto({required this.idEjercicio, this.orden, this.grupoSuperset});
 
   Map<String, dynamic> toJson() => {
         'id_ejercicio': idEjercicio,
         if (orden != null) 'orden': orden,
+        if (grupoSuperset != null) 'grupo_superset': grupoSuperset,
       };
 }
 

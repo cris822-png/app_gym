@@ -122,6 +122,7 @@ def crear_rutina_completa_service(
             for idx, ej_obj in enumerate(ejercicios_payload, start=1):
                 id_ejercicio = ej_obj.get("id_ejercicio")
                 orden = ej_obj.get("orden") or idx
+                grupo_superset = ej_obj.get("grupo_superset")  # nullable
 
                 if not id_ejercicio:
                     raise HTTPException(
@@ -143,11 +144,11 @@ def crear_rutina_completa_service(
 
                 cursor.execute(
                     """
-                    INSERT INTO rutina_ejercicio (id_rutina_dia, id_ejercicio, orden)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO rutina_ejercicio (id_rutina_dia, id_ejercicio, orden, grupo_superset)
+                    VALUES (%s, %s, %s, %s)
                     RETURNING id_rutina_ejercicio
                     """,
-                    (id_rutina_dia, id_ejercicio, orden),
+                    (id_rutina_dia, id_ejercicio, orden, grupo_superset),
                 )
                 id_rutina_ejercicio = cursor.fetchone()[0]
 
@@ -156,6 +157,7 @@ def crear_rutina_completa_service(
                     "id_ejercicio": id_ejercicio,
                     "name": ej_row[1],
                     "orden": orden,
+                    "grupo_superset": grupo_superset,
                 })
 
             created_dias.append({
@@ -215,6 +217,7 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
                 rd.nombre_dia,
                 re.id_rutina_ejercicio,
                 re.orden,
+                re.grupo_superset,
                 e.id_ejercicio,
                 e.name,
                 e.musculos_principales,
@@ -239,7 +242,7 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
             (
                 id_rutina, name_rutina, fecha,
                 id_rutina_dia, nombre_dia,
-                id_rutina_ejercicio, orden,
+                id_rutina_ejercicio, orden, grupo_superset,
                 id_ejercicio, name, musculos_p, musculos_s, material,
             ) = fila
 
@@ -268,6 +271,7 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
                 dias_map[id_rutina_dia]["ejercicios"].append({
                     "id_rutina_ejercicio": id_rutina_ejercicio,
                     "orden": orden,
+                    "grupo_superset": grupo_superset,
                     "id_ejercicio": id_ejercicio,
                     "name": name,
                     "musculos_principales": musculos_p,
@@ -320,6 +324,7 @@ def obtener_dias_rutina_service(id_rutina: int) -> list[dict]:
                 rd.nombre_dia,
                 re.id_rutina_ejercicio,
                 re.orden,
+                re.grupo_superset,
                 e.id_ejercicio,
                 e.name,
                 e.musculos_principales,
@@ -339,7 +344,7 @@ def obtener_dias_rutina_service(id_rutina: int) -> list[dict]:
         for fila in filas:
             (
                 id_rutina_dia, nombre_dia,
-                id_rutina_ejercicio, orden,
+                id_rutina_ejercicio, orden, grupo_superset,
                 id_ejercicio, name, musculos_p, musculos_s, material,
             ) = fila
 
@@ -354,6 +359,7 @@ def obtener_dias_rutina_service(id_rutina: int) -> list[dict]:
                 dias_map[id_rutina_dia]["ejercicios"].append({
                     "id_rutina_ejercicio": id_rutina_ejercicio,
                     "orden": orden,
+                    "grupo_superset": grupo_superset,
                     "id_ejercicio": id_ejercicio,
                     "name": name,
                     "musculos_principales": musculos_p,

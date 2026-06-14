@@ -45,6 +45,7 @@ class EjercicioDiaPayload(BaseModel):
     """Un ejercicio dentro de un día de la rutina."""
     id_ejercicio: int = Field(..., gt=0, description="ID del ejercicio")
     orden: Optional[int] = Field(None, ge=1, description="Orden del ejercicio en el día")
+    grupo_superset: Optional[str] = Field(None, max_length=10, description="Letra/etiqueta del grupo superset (ej. 'A', 'B')")
 
 
 class DiaDtoPayload(BaseModel):
@@ -113,9 +114,7 @@ class CrearEntrenamientoRequest(BaseModel):
     ejercicios: List[CrearEntrenamientoEjercicio] = Field(..., min_length=1, description="Lista de ejercicios")
 
 
-class SerieResponse(BaseModel):
-    peso: float
-    reps: int
+
 
 
 class EntrenamientoEjercicioResponse(BaseModel):
@@ -182,6 +181,9 @@ class RegistrarSerieRequest(BaseModel):
     """Registra una sola serie al presionar el botón Check ✓ en la app."""
     peso: float = Field(..., gt=0, le=999, description="Peso utilizado en kg")
     reps: int   = Field(..., gt=0, le=200, description="Repeticiones realizadas")
+    tipo_serie: str = Field('normal', description="Tipo: 'normal', 'calentamiento' o 'drop_set'")
+    id_serie_padre: Optional[int] = Field(None, description="ID de la serie principal (solo para drop_set)")
+
 
 
 class ChatIaRequest(BaseModel):
