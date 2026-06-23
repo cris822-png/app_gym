@@ -13,3 +13,4 @@ __pycache__
 *test/
 schema.sql
 .claude
+repomix-output.xml
