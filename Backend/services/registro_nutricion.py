@@ -1,8 +1,12 @@
 import sys
 import os
+import logging
 from datetime import datetime, date
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
+
 
 dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 load_dotenv(dotenv_path)
@@ -88,9 +92,10 @@ def registrar_registro_nutricion_service(
     except Exception as e:
         if conn:
             conn.rollback()
+        logger.error("Error al guardar registro nutricional usuario id=%s: %s", id_usuario, e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al guardar el registro nutricional: {str(e)}",
+            detail="Error interno del servidor",
         )
     finally:
         if conn:

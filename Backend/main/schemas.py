@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -230,9 +230,9 @@ class RegistroNutricionRequest(BaseModel):
     """Registro manual de una comida en tabla registro_nutricion."""
     comida: str = Field(..., min_length=1, max_length=255, description="Nombre de la comida")
     cantidad_g: float = Field(..., gt=0, le=9999, description="Cantidad en gramos")
-    tipo_comida: str = Field(
+    tipo_comida: Literal['desayuno', 'almuerzo', 'cena', 'snack', 'postre'] = Field(
         ...,
-        description="Tipo: desayuno, almuerzo, cena, snack, postre",
+        description="Tipo de comida: desayuno, almuerzo, cena, snack o postre",
     )
     fecha_consumo: datetime = Field(..., description="Fecha y hora de consumo en ISO-8601")
     detalles: Optional[str] = Field(

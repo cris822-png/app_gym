@@ -2,10 +2,14 @@ import sys
 import os
 import hashlib
 import hmac
+import logging
 import secrets
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
+
 
 # Cargar variables de entorno desde el .env raíz aunque el app se inicie desde Backend/
 dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -45,12 +49,6 @@ def _is_hashed_password(stored_password: str) -> bool:
         return False
     parts = stored_password.split('$', 1)
     return len(parts) == 2 and all(parts)
-
-
-def _hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
-    return f"{salt}${hashed.hex()}"
 
 
 def _verify_password(password: str, stored_password: str) -> bool:
@@ -228,9 +226,10 @@ def obtener_usuario_service(id_usuario: int) -> dict:
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Error al obtener usuario id=%s: %s", id_usuario, e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al obtener el usuario: {str(e)}"
+            detail="Error interno del servidor"
         )
     finally:
         if conn:
@@ -299,9 +298,10 @@ def actualizar_usuario_service(id_usuario: int, objetivo_porcentage: str | None 
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Error al actualizar usuario id=%s: %s", id_usuario, e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al actualizar el usuario: {str(e)}"
+            detail="Error interno del servidor"
         )
     finally:
         if conn:
@@ -573,9 +573,10 @@ def crear_sesion_service(id_usuario: int, remember_me: bool, expires_days: int =
     except Exception as e:
         if conn:
             conn.rollback()
+        logger.error("Error al crear sesion usuario id=%s: %s", id_usuario, e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al crear la sesión: {str(e)}"
+            detail="Error interno del servidor"
         )
     finally:
         if conn:
@@ -628,9 +629,10 @@ def verificar_sesion_service(token: str) -> dict:
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Error al verificar sesion token=*****: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al verificar la sesión: {str(e)}"
+            detail="Error interno del servidor"
         )
     finally:
         if conn:

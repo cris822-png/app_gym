@@ -69,13 +69,18 @@ from utils.responses import standarize_response, custom_validation_exception_han
 # Crear aplicación FastAPI
 app = FastAPI(title="App Gym API", version="1.0.0")
 
-# Configurar CORS
+# Configurar CORS — orígenes explícitos desde variable de entorno
+# Para desarrollo local: ALLOWED_ORIGINS=http://localhost:3000
+# Para producción: ALLOWED_ORIGINS=https://tudominio.com
+_allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://10.0.2.2:3000")
+ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Registrar manejador personalizado para errores de validación

@@ -1,5 +1,6 @@
 import sys
 import os
+import logging
 from dotenv import load_dotenv
 from datetime import date
 from fastapi import HTTPException, status
@@ -10,6 +11,8 @@ load_dotenv(dotenv_path)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from database.configs.pgsql_connection import connect_bbdd_pgsql, release_connection
+
+logger = logging.getLogger(__name__)
 
 
 # ── Helpers de conexión ──────────────────────────────────────────────────────
@@ -187,9 +190,10 @@ def crear_rutina_completa_service(
     except Exception as e:
         if conn:
             conn.rollback()
+        logger.error("Error al crear rutina: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al crear la rutina completa: {str(e)}",
+            detail="Error interno del servidor",
         )
     finally:
         if conn:
@@ -289,9 +293,10 @@ def obtener_rutinas_usuario_service(id_usuario: int) -> list[dict]:
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Error al obtener rutinas usuario: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al obtener las rutinas del usuario: {str(e)}",
+            detail="Error interno del servidor",
         )
     finally:
         if conn:
@@ -379,9 +384,10 @@ def obtener_dias_rutina_service(id_rutina: int) -> list[dict]:
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Error al obtener dias rutina id=%s: %s", id_rutina, e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al obtener los días de la rutina: {str(e)}",
+            detail="Error interno del servidor",
         )
     finally:
         if conn:
@@ -414,9 +420,10 @@ def eliminar_rutina_service(id_rutina: int) -> dict:
     except Exception as e:
         if conn:
             conn.rollback()
+        logger.error("Error al eliminar rutina id=%s: %s", id_rutina, e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al eliminar la rutina: {str(e)}",
+            detail="Error interno del servidor",
         )
     finally:
         if conn:
@@ -446,9 +453,10 @@ def actualizar_descanso_rutina_ejercicio_service(id_rutina_ejercicio: int, tiemp
     except Exception as e:
         if conn:
             conn.rollback()
+        logger.error("Error al actualizar descanso id_rutina_ejercicio=%s: %s", id_rutina_ejercicio, e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al actualizar el tiempo de descanso: {str(e)}",
+            detail="Error interno del servidor",
         )
     finally:
         if conn:
