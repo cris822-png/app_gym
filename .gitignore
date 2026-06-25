@@ -14,3 +14,4 @@ __pycache__
 schema.sql
 .claude
 repomix-output.xml
+.agents/
